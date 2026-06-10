@@ -1,0 +1,32 @@
+// src/app/core/services/persona.service.ts
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { Persona } from '../models/persona.model';
+import { ApiResponse } from '../models/ApiResponse';
+
+@Injectable({ providedIn: 'root' })
+export class PersonaService {
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = 'http://localhost:8081/api/persona';
+
+  listar(): Observable<ApiResponse<Persona[]>> {
+    return this.http.get<ApiResponse<Persona[]>>(`${this.baseUrl}/listar`);
+  }
+
+  obtenerPorId(id: number): Observable<ApiResponse<Persona>> {
+    return this.http.get<ApiResponse<Persona>>(`${this.baseUrl}/buscar/${id}`);
+  }
+
+  crear(persona: Persona): Observable<ApiResponse<Persona>> {
+    return this.http.post<ApiResponse<Persona>>(`${this.baseUrl}/registrar`, persona);
+  }
+
+  actualizar(id: number, persona: Persona): Observable<ApiResponse<Persona>> {
+    return this.http.put<ApiResponse<Persona>>(`${this.baseUrl}/actualizar/${id}`, persona);
+  }
+
+  eliminar(id: number): Observable<ApiResponse<null>> {
+    return this.http.delete<ApiResponse<null>>(`${this.baseUrl}/eliminar/${id}`);
+  }
+}

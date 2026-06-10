@@ -1,0 +1,165 @@
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="text-primary fw-bold"><i class="bi bi-door-open-fill me-2"></i> Gestión de Habitaciones</h3>
+    <button class="btn btn-success shadow-sm" (click)="abrir()">
+      <i class="bi bi-plus-lg me-1"></i> Registrar Habitación
+    </button>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4" *ngIf="!isLoading">
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control border-start-0 bg-light" [(ngModel)]="filtroTexto" placeholder="Buscar por número o categoría...">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="mt-2 text-muted small fw-semibold">Obteniendo datos de habitaciones...</p>
+  </div>
+
+  <div class="card border-0 shadow-sm" *ngIf="!isLoading">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>N° Habitación</th>
+            <th>Detalle / Descripción</th>
+            <th>Precio Diario</th>
+            <th>Categoría</th>
+            <th>Piso</th>
+            <th class="text-center">Estado Ocupación</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let h of habitacionesFiltradas">
+            <td class="fw-bold text-dark">{{ h.numero }}</td>
+            <td class="text-muted small">{{ h.detalle || 'Sin descripción' }}</td>
+            <td class="fw-bold text-success">{{ h.precio | currency:'PEN':'S/ ' }}</td>
+            <td><span class="badge bg-light text-dark border">{{ h.categoriaDesc }}</span></td>
+            <td>Nivel {{ h.pisoDesc }}</td>
+            <td class="text-center">
+              <span class="badge px-3 py-2 rounded-pill" [ngClass]="getEstadoBadgeClass(h.idEstadoHabitacion)">
+                {{ h.estadoHabitacionDesc }}
+              </span>
+            </td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-warning me-1 shadow-sm" (click)="abrir(h)">
+                <i class="bi bi-pencil"></i> Editar
+              </button>
+              <button class="btn btn-sm btn-outline-danger shadow-sm" (click)="eliminar(h.idHabitacion)">
+                <i class="bi bi-shield-slash"></i> Baja
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="habitacionesFiltradas.length === 0">
+            <td colspan="7" class="text-center text-muted py-5">
+              <i class="bi bi-inbox d-block fs-2 mb-2 text-muted"></i>
+              No se encontraron habitaciones registradas con ese criterio.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalHab" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-pencil-square me-2"></i>{{ habitacion.idHabitacion ? 'Modificar' : 'Registrar' }} Habitación
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="cerrarModal()"></button>
+      </div>
+      <div class="modal-body">
+        <form #f="ngForm" (ngSubmit)="f.valid && guardar()" novalidate>
+          <div class="row g-3">
+
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Número de Habitación</label>
+              <input
+                [(ngModel)]="habitacion.numero"
+                name="numero"
+                #num="ngModel"
+                class="form-control"
+                [class.is-invalid]="num.invalid && (num.dirty || num.touched || f.submitted)"
+                placeholder="Ej: 101"
+                required>
+              <div class="invalid-feedback">El número es requerido.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Precio por Noche</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light fw-bold text-muted">S/</span>
+                <input
+                  type="number"
+                  [(ngModel)]="habitacion.precio"
+                  name="precio"
+                  #prc="ngModel"
+                  class="form-control"
+                  [class.is-invalid]="prc.invalid && (prc.dirty || prc.touched || f.submitted)"
+                  min="1"
+                  required>
+              </div>
+              <div class="text-danger small mt-1" *ngIf="prc.invalid && (prc.dirty || prc.touched || f.submitted)">
+                El precio debe ser mayor a 0.
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label small fw-bold">Detalle / Especificaciones</label>
+              <textarea
+                [(ngModel)]="habitacion.detalle"
+                name="detalle"
+                class="form-control"
+                rows="2"
+                placeholder="Características, camas, servicios adicionales..."></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Categoría</label>
+              <select [(ngModel)]="habitacion.idCategoria" name="idCategoria" class="form-select" required>
+                <option [ngValue]="undefined" disabled selected>-- Seleccione Categoría --</option>
+                <option *ngFor="let c of categorias" [ngValue]="c.idCategoria">{{ c.descripcion }}</option>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Piso / Nivel</label>
+              <select [(ngModel)]="habitacion.idPiso" name="idPiso" class="form-select" required>
+                <option [ngValue]="undefined" disabled selected>-- Seleccione Piso --</option>
+                <option *ngFor="let p of pisos" [ngValue]="p.idPiso">{{ p.descripcion }}</option>
+              </select>
+            </div>
+
+            <div class="col-12" *ngIf="habitacion.idHabitacion">
+              <label class="form-label small fw-bold">Estado de Disponibilidad</label>
+              <select [(ngModel)]="habitacion.idEstadoHabitacion" name="idEstadoHabitacion" class="form-select" required>
+                <option *ngFor="let e of estados" [ngValue]="e.idEstadoHabitacion">{{ e.descripcion }}</option>
+              </select>
+            </div>
+
+          </div>
+
+          <div class="modal-footer border-0 px-0 pb-0 mt-4">
+            <button type="button" class="btn btn-light border" (click)="cerrarModal()">Cancelar</button>
+            <button type="submit" class="btn btn-success px-4 shadow-sm" [disabled]="!f.valid || isProcessing">
+              <span *ngIf="isProcessing" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              {{ isProcessing ? 'Guardando...' : 'Confirmar Guardar' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,103 @@
+.dashboard-header {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 18px;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+}
+
+.header-icon {
+  width: 75px;
+  height: 75px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffbe5c, #ff8c42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 .75rem 1.5rem rgba(255, 140, 66, .35);
+}
+
+.header-icon i {
+  font-size: 2.5rem;
+  color: #fff;
+}
+
+.filtro-box {
+  min-width: 230px;
+}
+
+.spinner-lg {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.room-card {
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all .25s ease;
+  background: #ffffff;
+}
+
+.room-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, .15) !important;
+}
+
+.room-icon {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffbe5c, #ff8c42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 .75rem 1.5rem rgba(255, 140, 66, .35);
+}
+
+.room-icon i {
+  font-size: 3rem;
+  color: #fff;
+}
+
+.categoria-badge {
+  background: #fff3e6;
+  color: #d97706;
+  font-size: .85rem;
+  padding: .55rem 1rem;
+  border-radius: 50px;
+}
+
+.estado-disponible {
+  background: #d1fae5;
+  color: #047857;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: .75rem;
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, #ffbe5c, #ff8c42);
+  border: none;
+  color: #fff;
+}
+
+.btn-warning:hover {
+  opacity: .92;
+  color: #fff;
+}
+
+.empty-icon {
+  width: 110px;
+  height: 110px;
+  margin: auto;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffbe5c, #ff8c42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 .75rem 1.5rem rgba(255, 140, 66, .30);
+}
+
+.empty-icon i {
+  color: white;
+  font-size: 3.5rem;
+}

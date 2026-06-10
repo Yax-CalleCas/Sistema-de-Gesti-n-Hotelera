@@ -1,0 +1,148 @@
+<div class="container py-4">
+  <h2 class="mb-4">Registro de Consumo</h2>
+
+  <div *ngIf="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
+    <strong>Error:</strong> {{ errorMessage }}
+    <button type="button" class="btn-close" (click)="errorMessage = null"></button>
+  </div>
+
+  <div class="card mb-4 shadow-sm border-0 bg-light">
+    <div class="card-body">
+      <h6 class="text-primary fw-bold mb-3">Resumen de la Habitación</h6>
+
+      <div class="row" *ngIf="datosRecepcion; else loading">
+        <div class="col-md-3 mb-3">
+          <label class="text-muted d-block small fw-bold">Número:</label>
+          <span>{{ datosRecepcion.numero }}</span>
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="text-muted d-block small fw-bold">Detalles:</label>
+          <span>{{ datosRecepcion.detalle || 'WIFI + BAÑO + TV + CABLE' }}</span>
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="text-muted d-block small fw-bold">Categoría:</label>
+          <span>{{ datosRecepcion.categoriaNombre || datosRecepcion.habitacion?.idCategoria }}</span>
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="text-muted d-block small fw-bold">Piso:</label>
+          <span>{{ datosRecepcion.pisoNombre || 'PRIMERO' }}</span>
+        </div>
+
+        <div class="col-md-3">
+          <label class="text-muted d-block small fw-bold">Cliente:</label>
+          <span>{{ datosRecepcion.nombre }} {{ datosRecepcion.apellido }}</span>
+        </div>
+        <div class="col-md-3">
+          <label class="text-muted d-block small fw-bold">Nro. Documento:</label>
+          <span>{{ datosRecepcion.documento || datosRecepcion.Dni }}</span>
+        </div>
+        <div class="col-md-3">
+          <label class="text-muted d-block small fw-bold">Correo:</label>
+          <span>{{ datosRecepcion.correo || 'sin_correo@gmail.com' }}</span>
+        </div>
+        <div class="col-md-3">
+          <label class="text-muted d-block small fw-bold">Fecha Entrada:</label>
+          <span>{{ datosRecepcion.fechaEntrada | date:'dd/MM/yyyy' }}</span>
+        </div>
+      </div>
+
+      <ng-template #loading>
+        <div class="text-center py-2 text-muted">
+          <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+          Cargando datos de la recepción activa...
+        </div>
+      </ng-template>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h6 class="text-primary fw-bold mb-4">Detalle venta</h6>
+
+      <div class="row align-items-end mb-4">
+        <div class="col-md-5">
+          <label class="form-label text-muted small">Producto:</label>
+          <select [(ngModel)]="productoSeleccionadoId" class="form-select">
+            <option value="0" disabled>Seleccione un producto</option>
+            <option *ngFor="let p of listaProductos" [value]="p.idProducto">
+              {{ p.nombre }}
+            </option>
+          </select>
+        </div>
+
+       <div class="col-md-2">
+  <label class="form-label text-muted small">Precio:</label>
+  <input type="text" class="form-control bg-light"
+         [value]="obtenerPrecioSeleccionado() | number:'1.2-2'" readonly placeholder="0.00">
+</div>
+
+        <div class="col-md-2">
+          <label class="form-label text-muted small">Cantidad:</label>
+          <input type="number" [(ngModel)]="cantidad" class="form-control" min="1">
+        </div>
+
+        <div class="col-md-3">
+          <button class="btn btn-emerald text-white w-100" style="background-color: #10b981;" (click)="agregarAlCarrito()">
+            Agregar
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive mb-4">
+        <table class="table table-bordered align-middle">
+          <thead style="background-color: #5c6370;" class="text-white">
+            <tr>
+              <th style="width: 60px;" class="text-center"></th>
+              <th>Producto</th>
+              <th style="width: 120px;" class="text-center">Cantidad</th>
+              <th style="width: 180px;" class="text-end">Precio Unitario</th>
+              <th style="width: 180px;" class="text-end">Sub Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of carrito; let i = index">
+              <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger" (click)="carrito.splice(i, 1)">
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+              </td>
+              <td>{{ item.nombre }}</td>
+              <td class="text-center">{{ item.cantidad }}</td>
+              <td class="text-end">S/ {{ item.precio | number:'1.2-2' }}</td>
+              <td class="text-end fw-bold">S/ {{ item.subTotal | number:'1.2-2' }}</td>
+            </tr>
+            <tr *ngIf="carrito.length === 0">
+              <td colspan="5" class="text-center text-muted py-3">No hay productos agregados al detalle de venta.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row justify-content-end align-items-center g-3 border-top pt-3">
+        <div class="col-md-4 text-end d-flex align-items-center justify-content-end">
+          <span class="bg-secondary text-white px-3 py-2 fw-bold rounded-start">Total Pagar</span>
+          <input type="text" class="form-control text-end fw-bold bg-white rounded-end" style="width: 150px; height: 41px;"
+                 [value]="'S/ ' + (getTotal() | number:'1.2-2')" readonly>
+        </div>
+      </div>
+
+      <div class="row justify-content-end align-items-center g-3 mt-2" *ngIf="carrito.length > 0">
+        <div class="col-md-5 d-flex align-items-center">
+          <span class="input-group-text bg-light border-end-0 text-muted small" style="height: 38px;">Estado Venta</span>
+          <select [(ngModel)]="estadoVenta" class="form-select rounded-start-0" name="estadoVenta">
+            <option value="DEBE">Pendiente (Cargar a la habitación)</option>
+            <option value="PAGADO">Pagado (Cancelado en caja inmediato)</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <button class="btn btn-primary w-100 fw-bold" style="background-color: #4f46e5; height: 38px;"
+                  [disabled]="isProcessing" (click)="registrarVenta()">
+            {{ isProcessing ? 'Procesando...' : 'Finalizar Venta' }}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

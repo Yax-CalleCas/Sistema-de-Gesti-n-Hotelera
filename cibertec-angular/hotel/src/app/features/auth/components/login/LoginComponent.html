@@ -1,0 +1,51 @@
+<main class="login-container">
+  <section class="login-card">
+    <header class="login-header">
+      <h2>Iniciar Sesión</h2>
+      <p>Introduce tus credenciales para acceder al sistema</p>
+    </header>
+
+    @if (errorMessage) {
+      <div class="alert-danger" role="alert">
+        {{ errorMessage }}
+      </div>
+    }
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <div class="form-group">
+        <label for="correo">Correo Electrónico</label>
+        <input
+          id="correo"
+          formControlName="correo"
+          type="email"
+          placeholder="correo@ejemplo.com"
+          [class.input-error]="loginForm.get('correo')?.touched && loginForm.get('correo')?.invalid"
+        >
+        @if (loginForm.get('correo')?.touched && loginForm.get('correo')?.hasError('required')) {
+          <small class="error-text">El correo es obligatorio.</small>
+        }
+        @if (loginForm.get('correo')?.touched && loginForm.get('correo')?.hasError('email')) {
+          <small class="error-text">Ingresa un formato de correo válido.</small>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="clave">Contraseña</label>
+        <input
+          id="clave"
+          formControlName="clave"
+          type="password"
+          placeholder="••••••••"
+          [class.input-error]="loginForm.get('clave')?.touched && loginForm.get('clave')?.invalid"
+        >
+        @if (loginForm.get('clave')?.touched && loginForm.get('clave')?.hasError('required')) {
+          <small class="error-text">La contraseña es obligatoria.</small>
+        }
+      </div>
+
+      <button type="submit" [disabled]="loginForm.invalid" class="btn-submit">
+        Ingresar
+      </button>
+    </form>
+  </section>
+</main>

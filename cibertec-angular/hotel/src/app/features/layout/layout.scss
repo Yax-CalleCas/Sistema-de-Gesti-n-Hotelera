@@ -1,0 +1,44 @@
+.sidebar {
+  width: 280px;
+  background: linear-gradient(180deg, #87b001 0%, #076806 100%);
+  transition: all 0.25s ease;
+  box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+}
+
+.nav-link {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  transition: background 0.3s ease;
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+.nav-link.active {
+  background: rgba(255, 255, 255, 0.25);
+  font-weight: 600;
+  border-left: 4px solid #64CAD1;
+}
+
+main {
+  height: 100vh;
+  overflow-y: auto;
+}
+
+footer {
+  background: linear-gradient(180deg, #d5e0b4 0%, #cde6cc 100%);
+  color: #2e2b2b;
+  padding: 1rem 0;
+  text-align: center;
+  width: 100%;
+}
+
+footer .fw-bold {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+footer small {
+  font-size: 0.875rem;
+  opacity: 0.9; /* Suaviza el texto secundario */
+}
