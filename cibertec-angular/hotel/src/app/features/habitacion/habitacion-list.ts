@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -9,176 +9,144 @@ import { EstadoHabitacionService } from '../../core/services/EstadoHabitacionSer
 import { CategoriaService } from '../../core/services/categoria.service';
 import { PisoService } from '../../core/services/piso.service';
 import { Habitacion } from '../../core/models/Habitacion';
-import { EstadoHabitacion } from '../../core/models/estado-habitacion.model';
-import { Categoria } from '../../core/models/categoria.model';
-import { Piso } from '../../core/models/piso';
-
-interface HabitacionExtendida extends Habitacion {
-  categoriaDesc?: string;
-  pisoDesc?: string;
-  estadoHabitacionDesc?: string;
-}
 
 @Component({
   selector: 'app-habitacion-list',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './habitacion-list.html'
+  templateUrl: './habitacion-list.html',
+  styleUrls: ['./habitacion-list.css']
 })
 export class HabitacionListComponent implements OnInit {
   private readonly service = inject(HabitacionService);
   private readonly estadoService = inject(EstadoHabitacionService);
   private readonly categoriaService = inject(CategoriaService);
   private readonly pisoService = inject(PisoService);
-  private readonly cdr = inject(ChangeDetectorRef);
 
-  habitaciones: HabitacionExtendida[] = [];
-  estados: EstadoHabitacion[] = [];
-  categorias: Categoria[] = [];
-  pisos: Piso[] = [];
+  // Estados como Signals
+  habitaciones = signal<any[]>([]);
+  filtroTexto = signal('');
+  isLoading = signal(false);
+  isProcessing = signal(false);
 
-  // Se inicializa con valores por defecto crudos para mitigar errores de lectura en las directivas de enlace del HTML (ngModel)
-  habitacion: Habitacion = {
-    numero: '',
-    detalle: '',
-    precio: 0,
-    idEstadoHabitacion: 1,
-    idPiso: 1,
-    idCategoria: 1,
-    estado: true
-  };
+  // Catálogos
+  categorias = signal<any[]>([]);
+  pisos = signal<any[]>([]);
+  estados = signal<any[]>([]);
 
-  isProcessing = false;
-  filtroTexto: string = '';
-  isLoading = false;
+  // Mapas para búsqueda instantánea O(1)
+  private estadosMap = new Map<number, string>();
+  private categoriasMap = new Map<number, string>();
+  private pisosMap = new Map<number, string>();
 
-  ngOnInit(): void {
-    this.cargarDatos();
-  }
+  habitacion = signal<Habitacion>(this.nuevoModelo());
+
+  // Filtrado reactivo optimizado
+  habitacionesFiltradas = computed(() => {
+    const filtro = this.filtroTexto().toLowerCase().trim();
+    return this.habitaciones().filter(h =>
+      h.numero.toLowerCase().includes(filtro) ||
+      h.categoriaDesc?.toLowerCase().includes(filtro)
+    );
+  });
+
+  ngOnInit(): void { this.cargarDatos(); }
 
   cargarDatos(): void {
-    this.isLoading = true;
-
+    this.isLoading.set(true);
     forkJoin({
-      habitaciones: this.service.listar(),
-      estados: this.estadoService.listar(),
-      categorias: this.categoriaService.listar(),
-      pisos: this.pisoService.listar()
+      h: this.service.listar(),
+      e: this.estadoService.listar(),
+      c: this.categoriaService.listar(),
+      p: this.pisoService.listar()
     }).subscribe({
-      next: (res) => {
-        this.estados = res.estados.data || [];
-        this.categorias = (res.categorias.data || []).filter(c => c.estado);
-        this.pisos = (res.pisos.data || []).filter(p => p.estado);
+      next: ({ h, e, c, p }) => {
+        // Actualizar catálogos
+        this.estados.set(e.data || []);
+        this.categorias.set((c.data || []).filter(x => x.estado));
+        this.pisos.set((p.data || []).filter(x => x.estado));
 
-        const listaHab = res.habitaciones.data || [];
-        this.habitaciones = listaHab.map((h: Habitacion) => ({
-          ...h,
-          categoriaDesc: this.categorias.find(c => c.idCategoria === h.idCategoria)?.descripcion || 'N/A',
-          pisoDesc: this.pisos.find(p => p.idPiso === h.idPiso)?.descripcion || 'N/A',
-          estadoHabitacionDesc: this.estados.find(e => e.idEstadoHabitacion === h.idEstadoHabitacion)?.descripcion || 'Desconocido'
-        }));
+        // Cargar mapas para mapeo rápido
+        this.estados().forEach(x => this.estadosMap.set(x.idEstadoHabitacion!, x.descripcion!));
+        this.categorias().forEach(x => this.categoriasMap.set(x.idCategoria!, x.descripcion!));
+        this.pisos().forEach(x => this.pisosMap.set(x.idPiso!, x.descripcion!));
 
-        this.habitacion = this.nuevoModelo();
-        this.isLoading = false;
-
-        // Forzar detección manual inmediata para desacoplar el estado asíncrono y destruir el spinner en el DOM
-        this.cdr.detectChanges();
+        this.habitaciones.set((h.data || []).map(item => ({
+          ...item,
+          categoriaDesc: this.categoriasMap.get(item.idCategoria) || 'N/A',
+          pisoDesc: this.pisosMap.get(item.idPiso) || 'N/A',
+          estadoHabitacionDesc: this.estadosMap.get(item.idEstadoHabitacion) || 'Desconocido'
+        })));
+        this.isLoading.set(false);
       },
       error: () => {
-        this.isLoading = false;
+        this.isLoading.set(false);
         Swal.fire('Error', 'No se pudieron cargar los datos', 'error');
       }
     });
   }
 
-  nuevoModelo(): Habitacion {
-    const primerEstado = this.estados?.[0]?.idEstadoHabitacion ?? 1;
-    const primerPiso = this.pisos?.[0]?.idPiso ?? 1;
-    const primeraCat = this.categorias?.[0]?.idCategoria ?? 1;
-
-    return {
-      numero: '',
-      detalle: '',
-      precio: 0,
-      idEstadoHabitacion: primerEstado,
-      idPiso: primerPiso,
-      idCategoria: primeraCat,
-      estado: true
-    };
-  }
-
   abrir(h?: Habitacion): void {
-    this.habitacion = h ? { ...h } : this.nuevoModelo();
+    this.habitacion.set(h ? { ...h, urlsImagenes: [...(h.urlsImagenes || [])] } : this.nuevoModelo());
     const modalEl = document.getElementById('modalHab');
-    if (modalEl) {
-      (window as any).bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    }
+    if (modalEl) (window as any).bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
 
   guardar(): void {
-    if (this.isProcessing) return;
-    this.isProcessing = true;
-
-    this.service.guardar(this.habitacion).subscribe({
+    this.isProcessing.set(true);
+    this.service.guardar(this.habitacion()).subscribe({
       next: () => {
-        Swal.fire('Éxito', 'Habitación guardada correctamente', 'success');
+        Swal.fire('Éxito', 'Operación correcta', 'success');
         this.cargarDatos();
         this.cerrarModal();
       },
-      error: () => {
-        this.isProcessing = false;
-        Swal.fire('Error', 'No se pudo guardar la habitación', 'error');
-      },
-      complete: () => this.isProcessing = false
+      error: () => Swal.fire('Error', 'No se pudo guardar', 'error'),
+      complete: () => this.isProcessing.set(false)
     });
-  }
-
-  cerrarModal(): void {
-    const modalEl = document.getElementById('modalHab');
-    if (modalEl) {
-      const instance = (window as any).bootstrap.Modal.getInstance(modalEl);
-      if (instance) instance.hide();
-    }
-  }
-
-  get habitacionesFiltradas(): HabitacionExtendida[] {
-    if (!this.habitaciones) return [];
-    const filtro = this.filtroTexto.toLowerCase().trim();
-    return this.habitaciones.filter(h =>
-      h.numero.toLowerCase().includes(filtro) ||
-      h.categoriaDesc?.toLowerCase().includes(filtro)
-    );
   }
 
   eliminar(id?: number): void {
     if (!id) return;
-
     Swal.fire({
-      title: '¿Estás seguro?',
-      text: "La habitación cambiará de estado a inactiva",
+      title: '¿Confirmar baja?',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       confirmButtonText: 'Sí, dar de baja'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.service.eliminar(id).subscribe({
-          next: () => {
-            this.cargarDatos();
-            Swal.fire('Baja Exitosa', 'Habitación desactivada.', 'success');
-          },
-          error: () => Swal.fire('Error', 'No se pudo procesar la baja', 'error')
-        });
+    }).then((res) => {
+      if (res.isConfirmed) {
+        this.service.eliminar(id).subscribe(() => this.cargarDatos());
       }
     });
   }
 
-  getEstadoBadgeClass(idEstado: number): string {
-    const clases: Record<number, string> = {
-      1: 'bg-success',
-      2: 'bg-danger',
-      3: 'bg-warning text-dark',
-    };
-    return clases[idEstado] || 'bg-secondary';
+  agregarImagen(url: string): void {
+    const cleanUrl = url.trim();
+    if (!cleanUrl.startsWith('http')) return;
+    this.habitacion.update(h => ({ ...h, urlsImagenes: [...(h.urlsImagenes || []), cleanUrl] }));
+  }
+
+  eliminarImagen(index: number): void {
+    this.habitacion.update(h => {
+      const nuevas = [...(h.urlsImagenes || [])];
+      nuevas.splice(index, 1);
+      return { ...h, urlsImagenes: nuevas };
+    });
+  }
+
+  trackByHabitacion = (index: number, h: any) => h.idHabitacion;
+
+  getEstadoBadgeClass(id: number): string {
+    const dict: Record<number, string> = { 1: 'bg-success', 2: 'bg-danger', 3: 'bg-warning text-dark' };
+    return dict[id] || 'bg-secondary';
+  }
+
+  cerrarModal(): void {
+    const modalEl = document.getElementById('modalHab');
+    if (modalEl) (window as any).bootstrap.Modal.getInstance(modalEl)?.hide();
+  }
+
+  nuevoModelo(): Habitacion {
+    return { numero: '', detalle: '', precio: 0, idEstadoHabitacion: 1, idPiso: 1, idCategoria: 1, estado: true, urlsImagenes: [] };
   }
 }

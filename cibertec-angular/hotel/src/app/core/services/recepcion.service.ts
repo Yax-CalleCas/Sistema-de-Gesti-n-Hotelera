@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay, tap } from 'rxjs';
 import { ApiResponse } from '../models/ApiResponse';
 import { Recepcion } from '../models/recepcion.model';
 
@@ -8,17 +8,24 @@ import { Recepcion } from '../models/recepcion.model';
 export class RecepcionService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = 'http://localhost:8081/api/recepcion';
+  private listarCache$?: Observable<ApiResponse<Recepcion[]>>;
 
   listar(): Observable<ApiResponse<Recepcion[]>> {
-    return this.http.get<ApiResponse<Recepcion[]>>(`${this.baseUrl}/listar`);
+    if (!this.listarCache$) {
+      this.listarCache$ = this.http.get<ApiResponse<Recepcion[]>>(`${this.baseUrl}/listar`).pipe(shareReplay(1));
+    }
+    return this.listarCache$;
   }
 
-/*
-  buscar(id: number): Observable<ApiResponse<Recepcion>> {
-    return this.http.get<ApiResponse<Recepcion>>(`${this.baseUrl}/buscar/${id}`);
+  private invalidateCache() { this.listarCache$ = undefined; }
+
+  registrar(dto: any): Observable<ApiResponse<Recepcion>> {
+    return this.http.post<ApiResponse<Recepcion>>(`${this.baseUrl}/registrar`, dto).pipe(tap(() => this.invalidateCache()));
   }
-*/
-// Cambiado de 'buscar' a 'buscarPorId' para unificar con tus otros servicios
+
+  registrarSalida(data: any): Observable<ApiResponse<boolean>> {
+    return this.http.post<ApiResponse<boolean>>(`${this.baseUrl}/registrar-salida`, data).pipe(tap(() => this.invalidateCache()));
+  }
   buscarPorId(id: number): Observable<ApiResponse<Recepcion>> {
     return this.http.get<ApiResponse<Recepcion>>(`${this.baseUrl}/buscar/${id}`);
   }
@@ -27,19 +34,6 @@ export class RecepcionService {
   }
 
 
-  registrar(dto: any): Observable<ApiResponse<Recepcion>> {
-    return this.http.post<ApiResponse<Recepcion>>(`${this.baseUrl}/registrar`, dto);
-  }
-
-  // MÉTODO NUEVO: Para el Check-Out / Salida de Habitación
-  registrarSalida(data: {
-    idRecepcion: number,
-    idHabitacion: number,
-    costoPenalidad: number,
-    totalPagado: number
-  }): Observable<ApiResponse<boolean>> {
-    return this.http.post<ApiResponse<boolean>>(`${this.baseUrl}/registrar-salida`, data);
-  }
 
   actualizar(id: number, dto: Recepcion): Observable<ApiResponse<Recepcion>> {
     return this.http.put<ApiResponse<Recepcion>>(`${this.baseUrl}/actualizar/${id}`, dto);

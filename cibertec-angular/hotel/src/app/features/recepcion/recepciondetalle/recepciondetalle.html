@@ -1,16 +1,20 @@
 <div class="container mt-4">
   <div class="card shadow-lg border-0 rounded-4">
-    <div class="card-header text-white rounded-top-4 py-3" [style.backgroundColor]="esOcupada ? '#343a40' : '#64CAD1'">
-      <h4 class="mb-0 fw-bold"><i class="bi me-2" [ngClass]="esOcupada ? 'bi-lock' : 'bi-calendar-plus'"></i>{{ esOcupada ? 'Detalle de Recepción Activa (Solo Lectura)' : 'Registrar Recepción' }}</h4>
+    <div class="card-header text-white rounded-top-4 py-3" [style.backgroundColor]="esOcupada() ? '#343a40' : '#64CAD1'">
+      <h4 class="mb-0 fw-bold">
+        <i class="bi me-2" [ngClass]="esOcupada() ? 'bi-lock' : 'bi-calendar-plus'"></i>
+        {{ esOcupada() ? 'Detalle de Recepción Activa (Solo Lectura)' : 'Registrar Recepción' }}
+      </h4>
     </div>
+
     <div class="card-body p-4">
-      <div class="alert border-0 rounded-3 p-3 mb-4 shadow-sm" style="background-color: rgba(100, 202, 209, 0.1);" *ngIf="habitacion">
+      <div class="alert border-0 rounded-3 p-3 mb-4 shadow-sm" style="background-color: rgba(100, 202, 209, 0.1);" *ngIf="habitacion()">
         <h5 class="fw-bold mb-3" style="color: #64CAD1;"><i class="bi bi-house-door-fill me-2"></i>Detalles de la Habitación</h5>
         <div class="row text-secondary">
-          <div class="col-md-3 mb-2"><strong>Número:</strong> <span class="text-dark">{{ habitacion.numero }}</span></div>
-          <div class="col-md-3 mb-2"><strong>Categoría:</strong> <span class="text-dark">{{ nombreCategoria }}</span></div>
-          <div class="col-md-3 mb-2"><strong>Piso:</strong> <span class="text-dark">{{ nombrePiso }}</span></div>
-          <div class="col-md-3 mb-2"><strong>Detalles:</strong> <span class="text-dark">{{ habitacion.detalle || 'WIFI + BAÑO + TV + CABLE' }}</span></div>
+          <div class="col-md-3 mb-2"><strong>Número:</strong> <span class="text-dark">{{ habitacion()?.numero }}</span></div>
+          <div class="col-md-3 mb-2"><strong>Categoría:</strong> <span class="text-dark">{{ nombreCategoria() }}</span></div>
+          <div class="col-md-3 mb-2"><strong>Piso:</strong> <span class="text-dark">{{ nombrePiso() }}</span></div>
+          <div class="col-md-3 mb-2"><strong>Detalles:</strong> <span class="text-dark">{{ habitacion()?.detalle || 'WIFI + BAÑO + TV + CABLE' }}</span></div>
         </div>
       </div>
 
@@ -18,18 +22,19 @@
         <div class="row g-4">
           <div class="col-md-6 border-end">
             <h5 class="fw-bold text-muted mb-3"><i class="bi bi-person-badge me-2"></i>Detalle Cliente</h5>
-            <div class="mb-3" *ngIf="!esOcupada">
+
+            <div class="mb-3" *ngIf="!esOcupada()">
               <label class="form-label">Nro Documento:</label>
               <div class="input-group">
-                <input type="text" class="form-control" [(ngModel)]="dniBusqueda" name="dniBusqueda" placeholder="Buscar por DNI">
-                <button type="button" class="btn text-white" style="background-color: #64CAD1;" [disabled]="isLoading" (click)="buscarCliente()">Buscar</button>
+                <input type="text" class="form-control" [ngModel]="dniBusqueda()" (ngModelChange)="dniBusqueda.set($event)" name="dniBusqueda" placeholder="Buscar por DNI">
+                <button type="button" class="btn text-white" style="background-color: #64CAD1;" (click)="buscarCliente()">Buscar</button>
                 <button type="button" class="btn btn-outline-secondary" (click)="abrirModalClientes()">Lista</button>
               </div>
             </div>
 
             <div class="mb-3">
               <label class="form-label">Tipo Documento:</label>
-              <select class="form-select" [(ngModel)]="recepcion.tipoDocumento" name="tipoDocumento" [disabled]="esOcupada">
+              <select class="form-select" [ngModel]="recepcion().tipoDocumento" (ngModelChange)="recepcion.update(r => ({...r, tipoDocumento: $event}))" name="tipoDocumento" [disabled]="esOcupada()">
                 <option value="DNI">DNI</option>
                 <option value="RUC">RUC</option>
                 <option value="PASAPORTE">PASAPORTE</option>
@@ -39,17 +44,17 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nro. Documento:</label>
-                <input type="text" class="form-control bg-light" [(ngModel)]="recepcion.documento" name="documento" readonly>
+                <input type="text" class="form-control bg-light" [ngModel]="recepcion().documento" name="documento" readonly>
               </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Correo:</label>
-                <input type="email" class="form-control bg-light" [(ngModel)]="recepcion.correo" name="correo" readonly>
+                <input type="email" class="form-control bg-light" [ngModel]="recepcion().correo" name="correo" readonly>
               </div>
             </div>
 
             <div class="mb-3">
               <label class="form-label">Nombres y Apellidos:</label>
-              <input type="text" class="form-control bg-light" [value]="(recepcion.nombre || '') + ' ' + (recepcion.apellido || '')" readonly>
+              <input type="text" class="form-control bg-light" [value]="(recepcion().nombre || '') + ' ' + (recepcion().apellido || '')" readonly>
             </div>
           </div>
 
@@ -58,65 +63,33 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Fecha Entrada:</label>
-                <input type="text" class="form-control bg-light" [value]="recepcion.fechaEntrada | date:'dd/MM/yyyy'" readonly>
+                <input type="text" class="form-control bg-light" [value]="recepcion().fechaEntrada | date:'dd/MM/yyyy'" readonly>
               </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Fecha Salida:</label>
-                <input type="date" class="form-control" [(ngModel)]="recepcion.fechaSalida" name="fechaSalida" (change)="calcularPrecio()" [readonly]="esOcupada" required>
+                <input type="date" class="form-control" [ngModel]="recepcion().fechaSalida" (ngModelChange)="recepcion.update(r => ({...r, fechaSalida: $event}))" name="fechaSalida" [readonly]="esOcupada()" required>
               </div>
             </div>
-            <div class="row">
-              <div class="col-md-4 mb-3">
-                <label class="form-label">Total Hospedaje:</label>
-                <input type="number" class="form-control bg-light fw-bold" [(ngModel)]="recepcion.precioInicial" name="precioInicial" readonly>
-              </div>
-              <div class="col-md-4 mb-3">
-                <label class="form-label">Adelanto:</label>
-                <input type="number" class="form-control border-info" [(ngModel)]="recepcion.adelanto" name="adelanto" (input)="calcularPrecio()" [readonly]="esOcupada">
-              </div>
-              <div class="col-md-4 mb-3">
-                <label class="form-label">Restante:</label>
-                <input type="number" class="form-control bg-light fw-bold text-danger" [(ngModel)]="recepcion.precioRestante" name="precioRestante" readonly>
-              </div>
             </div>
-          </div>
         </div>
 
-        <div class="mt-4 pt-3 border-top" *ngIf="esOcupada">
-          <div class="row">
-
-            <div class="col-md-6">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0 fw-bold" style="color: #64CAD1;"><i class="bi bi-cart-check me-2"></i>Productos Consumidos</h5>
-                <div *ngIf="isLoadingVentas" class="spinner-border spinner-border-sm" style="color: #64CAD1;"></div>
-              </div>
-              <div class="table-responsive rounded border" style="max-height: 250px;">
-                <table class="table table-sm table-hover align-middle mb-0">
-                  <thead class="table-dark">
-                    <tr><th>Producto</th><th>Cant.</th><th>P.Unit</th><th>Estado</th><th class="text-end">SubTotal</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let item of listaVentasCliente">
-                      <td>{{ item.producto }}</td>
-                      <td>{{ item.cantidad }}</td>
-                      <td>S/. {{ item.precioUnitario | number:'1.2-2' }}</td>
-                      <td>
-                        <span class="badge" [ngClass]="(item.estadoVenta === 'DEBE' || item.estadoVenta === 'PENDIENTE') ? 'bg-danger' : 'bg-success'">
-                          {{ (item.estadoVenta === 'DEBE' || item.estadoVenta === 'PENDIENTE') ? 'Por Cobrar' : 'Pagado' }}
-                        </span>
-                      </td>
-                      <td class="text-end">S/. {{ item.subTotal | number:'1.2-2' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+        <div class="mt-4 pt-3 border-top" *ngIf="esOcupada()">
+          <h5 class="fw-bold" style="color: #64CAD1;"><i class="bi bi-cart-check me-2"></i>Productos Consumidos</h5>
+          <table class="table table-sm table-hover align-middle">
+            <thead class="table-dark"><tr><th>Producto</th><th>Cant.</th><th>SubTotal</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let item of listaVentasCliente()">
+                <td>{{ item.producto }}</td>
+                <td>{{ item.cantidad }}</td>
+                <td class="text-end">S/. {{ item.subTotal | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <div class="text-end mt-4 pt-3 border-top">
           <button type="button" class="btn btn-outline-secondary px-4 me-2" routerLink="/admin/recepcion">Volver</button>
-          <button type="submit" class="btn text-white px-4" style="background-color: #64CAD1;" *ngIf="!esOcupada" [disabled]="!f.valid || !recepcion.idCliente">Registrar Reservación</button>
+          <button type="submit" class="btn text-white px-4" style="background-color: #64CAD1;" *ngIf="!esOcupada()" [disabled]="!f.valid">Registrar Reservación</button>
         </div>
       </form>
     </div>
@@ -132,11 +105,10 @@
       </div>
       <div class="modal-body">
         <div class="list-group list-group-flush">
-          <button type="button" class="list-group-item list-group-item-action py-3" *ngFor="let p of listaPersonas" (click)="seleccionarPersona(p)" data-bs-dismiss="modal">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-1 fw-bold">{{ p.nombre }} {{ p.apellido }}</h6>
-              <small class="badge bg-secondary">DNI: {{ p.documento }}</small>
-            </div>
+          <button type="button" class="list-group-item list-group-item-action py-3 d-flex justify-content-between align-items-center"
+                  *ngFor="let p of listaPersonas()" (click)="seleccionarPersona(p)" data-bs-dismiss="modal">
+            <div><h6 class="mb-1 fw-bold">{{ p.nombre }} {{ p.apellido }}</h6></div>
+            <span class="badge bg-secondary">DNI: {{ p.documento }}</span>
           </button>
         </div>
       </div>

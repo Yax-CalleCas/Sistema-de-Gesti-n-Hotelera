@@ -2,7 +2,9 @@ package com.hotel.cibertec.service.impl;
 
 import com.hotel.cibertec.dto.HabitacionDto;
 import com.hotel.cibertec.entity.Habitacion;
+import com.hotel.cibertec.entity.ImagenHabitacion;
 import com.hotel.cibertec.repository.HabitacionRepository;
+import com.hotel.cibertec.repository.ImagenHabitacionRepository;
 import com.hotel.cibertec.service.HabitacionService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.ParameterMode;
@@ -19,7 +21,8 @@ import java.util.stream.Collectors;
 public class HabitacionServiceImpl implements HabitacionService {
 
     private final HabitacionRepository repository;
-    private final EntityManager entityManager; // Inyectamos el gestor de entidades
+    private final ImagenHabitacionRepository imagenRepository; // Inyectar repositorio de imágenes
+    private final EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -59,10 +62,15 @@ public class HabitacionServiceImpl implements HabitacionService {
                 throw new IllegalArgumentException("El número de habitación ya se encuentra registrado.");
             }
 
-            return dto;
+            // Obtener la entidad recién creada para asociar las imágenes
+            Habitacion nuevaHab = repository.findByNumero(dto.getNumero())
+                    .orElseThrow(() -> new RuntimeException("Error al recuperar la habitación registrada"));
+
+            guardarImagenes(nuevaHab, dto.getUrlsImagenes());
+
+            return toDto(nuevaHab); // Retornamos el DTO actualizado con IDs
         } catch (Exception e) {
-            // Forzamos el lanzamiento controlado para que llegue al controlador como error HTTP estricto
-            throw new RuntimeException(e.getMessage());
+            throw new RuntimeException("Error al guardar habitación: " + e.getMessage());
         }
     }
 
@@ -94,12 +102,28 @@ public class HabitacionServiceImpl implements HabitacionService {
             Boolean resultado = (Boolean) query.getOutputParameterValue("Resultado");
 
             if (Boolean.FALSE.equals(resultado)) {
-                throw new IllegalArgumentException("No se pudo actualizar. El número de habitación ya existe.");
+                throw new IllegalArgumentException("Error al modificar: El número de habitación está duplicado.");
             }
 
-            return dto;
+            // Limpiar imágenes y forzar sincronización con la BD
+            imagenRepository.deleteByHabitacion_IdHabitacion(id);
+            imagenRepository.flush();
+
+            Habitacion hab = repository.findById(id).orElseThrow();
+            guardarImagenes(hab, dto.getUrlsImagenes());
+
+            return toDto(hab);
         } catch (Exception e) {
-            throw new RuntimeException(e.getMessage());
+            throw new RuntimeException("Error al actualizar habitación: " + e.getMessage());
+        }
+    }
+
+    private void guardarImagenes(Habitacion habitacion, List<String> urls) {
+        if (urls != null && !urls.isEmpty()) {
+            List<ImagenHabitacion> imagenes = urls.stream()
+                    .map(url -> ImagenHabitacion.builder().urlImagen(url).habitacion(habitacion).build())
+                    .collect(Collectors.toList());
+            imagenRepository.saveAll(imagenes); // Batch save para mayor eficiencia
         }
     }
 
@@ -119,8 +143,12 @@ public class HabitacionServiceImpl implements HabitacionService {
                 .precio(e.getPrecio())
                 .idPiso(e.getPiso() != null ? e.getPiso().getIdPiso() : null)
                 .idCategoria(e.getCategoria() != null ? e.getCategoria().getIdCategoria() : null)
-                .idEstadoHabitacion(e.getEstadoHabitacion() != null ? e.getEstadoHabitacion().getIdEstadoHabitacion() : null) // AGREGAR ESTA LÍNEA
+                .idEstadoHabitacion(e.getEstadoHabitacion() != null ? e.getEstadoHabitacion().getIdEstadoHabitacion() : null)
                 .estado(e.getEstado())
+                // --- AGREGAR ESTO ---
+                .urlsImagenes(e.getImagenes() != null ?
+                        e.getImagenes().stream().map(img -> img.getUrlImagen()).collect(Collectors.toList())
+                        : List.of())
                 .build();
     }
 }

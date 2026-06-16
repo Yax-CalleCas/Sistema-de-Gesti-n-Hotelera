@@ -1,6 +1,8 @@
 
 
 
+
+
 CREATE OR REPLACE PROCEDURE sp_RegistrarCategoria(
 IN p_Descripcion VARCHAR,
 OUT Resultado BOOLEAN
@@ -135,12 +137,17 @@ BEGIN
 END;
 $$;
 
+DROP PROCEDURE IF EXISTS sp_ModificarProducto;
 
-CREATE PROCEDURE sp_RegistrarProducto(
+DROP PROCEDURE IF EXISTS sp_RegistrarProducto;
+
+
+CREATE OR REPLACE PROCEDURE sp_RegistrarProducto(
     IN p_Nombre VARCHAR,
     IN p_Detalle VARCHAR,
     IN p_Precio NUMERIC,
     IN p_Cantidad INT,
+    IN p_ImagenUrl VARCHAR, -- Nuevo campo
     OUT Resultado BOOLEAN
 )
 LANGUAGE plpgsql
@@ -159,26 +166,32 @@ BEGIN
             Nombre,
             Detalle,
             Precio,
-            Cantidad
+            Cantidad,
+            Imagen_Url, -- Nombre de la columna en la tabla
+            Estado,
+            FechaCreacion
         )
         VALUES(
             p_Nombre,
             p_Detalle,
             p_Precio,
-            p_Cantidad
+            p_Cantidad,
+            p_ImagenUrl,
+            TRUE,
+            CURRENT_TIMESTAMP
         );
     END IF;
 END;
 $$;
 
-
-CREATE PROCEDURE sp_ModificarProducto(
+CREATE OR REPLACE PROCEDURE sp_ModificarProducto(
     IN p_IdProducto INT,
     IN p_Nombre VARCHAR,
     IN p_Detalle VARCHAR,
     IN p_Precio NUMERIC,
     IN p_Cantidad INT,
     IN p_Estado BOOLEAN,
+    IN p_ImagenUrl VARCHAR, -- Nuevo campo
     OUT Resultado BOOLEAN
 )
 LANGUAGE plpgsql
@@ -199,11 +212,13 @@ BEGIN
             Detalle = p_Detalle,
             Precio = p_Precio,
             Cantidad = p_Cantidad,
-            Estado = p_Estado
+            Estado = p_Estado,
+            Imagen_Url = p_ImagenUrl -- Actualización del campo
         WHERE IdProducto = p_IdProducto;
     END IF;
 END;
 $$;
+
 
 CREATE OR REPLACE PROCEDURE sp_RegistrarPersona(
 IN p_TipoDocumento VARCHAR,
@@ -299,35 +314,38 @@ BEGIN
 END;
 $$;
 
-
 CREATE OR REPLACE PROCEDURE sp_RegistrarSalida(
     IN p_IdRecepcion INT,
     IN p_IdHabitacion INT,
     IN p_CostoPenalidad NUMERIC,
     IN p_TotalPagado NUMERIC,
-    OUT Resultado BOOLEAN
+    OUT p_Resultado BOOLEAN
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    Resultado := TRUE;
-    BEGIN
-        -- 1. Actualizar la recepción a estado FALSE (inactivo) y registrar los totales
-        UPDATE RECEPCION
-        SET Estado = FALSE,
-            FechaSalidaConfirmacion = CURRENT_TIMESTAMP,
-            TotalPagado = p_TotalPagado,
-            CostoPenalidad = p_CostoPenalidad
-        WHERE IdRecepcion = p_IdRecepcion;
+    -- 1. Actualizar la recepción
+    UPDATE RECEPCION
+    SET Estado = FALSE,
+        FechaSalidaConfirmacion = CURRENT_TIMESTAMP,
+        TotalPagado = p_TotalPagado,
+        CostoPenalidad = p_CostoPenalidad
+    WHERE IdRecepcion = p_IdRecepcion;
 
-        -- 2. Cambiar habitación a estado 3 (Limpieza/Mantenimiento)
-        UPDATE HABITACION
-        SET IdEstadoHabitacion = 3
-        WHERE IdHabitacion = p_IdHabitacion;
+    -- 2. Marcar consumos (ventas) como 'PAGADO' al cerrar la recepción
+    UPDATE VENTA 
+    SET Estado = 'PAGADO' 
+    WHERE IdRecepcion = p_IdRecepcion AND Estado != 'PAGADO';
 
-    EXCEPTION WHEN OTHERS THEN
-        Resultado := FALSE;
-    END;
+    -- 3. Cambiar habitación a estado 3 (Limpieza/Mantenimiento)
+    UPDATE HABITACION
+    SET IdEstadoHabitacion = 3
+    WHERE IdHabitacion = p_IdHabitacion;
+
+    p_Resultado := TRUE;
+EXCEPTION WHEN OTHERS THEN
+    p_Resultado := FALSE;
+    RAISE NOTICE 'Error en sp_RegistrarSalida: %', SQLERRM;
 END;
 $$;
 
@@ -394,16 +412,98 @@ END;
 $$;
 
 
+-- reportes del sistema ----------------------------------
 
-SELECT column_name 
-FROM information_schema.columns 
-WHERE table_name = 'detalle_venta';
+-- Ejecuta esto antes de recrear cada función
+DROP FUNCTION IF EXISTS fn_Reporte_ProductosBajoStock(INT);
+DROP FUNCTION IF EXISTS fn_Reporte_Ventas(TIMESTAMP, TIMESTAMP);
+DROP FUNCTION IF EXISTS fn_Reporte_Ocupacion(TIMESTAMP, TIMESTAMP);
+DROP FUNCTION IF EXISTS fn_Reporte_Cobros(TIMESTAMP, TIMESTAMP);
+
+-------------------------------------------
+-- 1. Reporte de Productos Bajo Stock
+CREATE OR REPLACE FUNCTION fn_Reporte_ProductosBajoStock(p_limite INT)
+RETURNS TABLE(id_producto INT, nombre_prod TEXT, cant INT, prec NUMERIC, est BOOLEAN) AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT p.idproducto, p.nombre::TEXT, p.cantidad, p.precio, p.estado 
+    FROM PRODUCTO p 
+    WHERE p.cantidad <= p_limite;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 2. Reporte de Ventas
+CREATE OR REPLACE FUNCTION fn_Reporte_Ventas(p_inicio TIMESTAMP, p_fin TIMESTAMP)
+RETURNS TABLE(nombre_producto TEXT, cantidad_total BIGINT, total_ingresado NUMERIC) AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT p.nombre::TEXT, SUM(dv.cantidad)::BIGINT, SUM(dv.subtotal)::NUMERIC
+    FROM VENTA v
+    JOIN DETALLE_VENTA dv ON v.idventa = dv.idventa
+    JOIN PRODUCTO p ON dv.idproducto = p.idproducto
+    WHERE v.fechacreacion BETWEEN p_inicio AND p_fin
+    GROUP BY p.nombre;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3. Reporte de Ocupación
+CREATE OR REPLACE FUNCTION fn_Reporte_Ocupacion(p_inicio TIMESTAMP, p_fin TIMESTAMP)
+RETURNS TABLE(num_habitacion TEXT, desc_categoria TEXT, veces_alquilada BIGINT) AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT h.numero::TEXT, c.descripcion::TEXT, COUNT(r.idrecepcion)::BIGINT
+    FROM RECEPCION r
+    JOIN HABITACION h ON r.idhabitacion = h.idhabitacion
+    JOIN CATEGORIA c ON h.idcategoria = c.idcategoria
+    WHERE r.fechaentrada BETWEEN p_inicio AND p_fin
+    GROUP BY h.numero, c.descripcion;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. Reporte de Cobros
+-- Asegúrate de que la tabla sea "CLIENTE" (o "TB_CLIENTE" si así se llama en tu DB)
+
+CREATE OR REPLACE FUNCTION fn_Reporte_Cobros(p_inicio TIMESTAMP, p_fin TIMESTAMP)
+RETURNS TABLE(numero_habitacion TEXT, nombre_cliente TEXT, total_pagado NUMERIC, fecha_pago TIMESTAMP) AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT 
+        h.numero::TEXT, 
+        (p.nombre || ' ' || p.apellido)::TEXT, 
+        r.totalpagado, 
+        r.fechaSalidaConfirmacion
+    FROM RECEPCION r
+    JOIN HABITACION h ON r.idhabitacion = h.idhabitacion
+    -- Cambiamos el JOIN: ahora unimos con PERSONA y filtramos por idtipopersona = 3
+    JOIN PERSONA p ON r.idcliente = p.idpersona 
+    WHERE p.idtipopersona = 3 
+    AND r.fechaSalidaConfirmacion BETWEEN p_inicio AND p_fin;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- 4. Dashboard Estadísticas (Retorna una fila única)
+CREATE OR REPLACE FUNCTION fn_Dashboard_Estadisticas()
+RETURNS TABLE(ocupadas BIGINT, disponibles BIGINT, bajo_stock BIGINT, ingresos_hoy NUMERIC) AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT 
+        (SELECT COUNT(*) FROM HABITACION WHERE idestadohabitacion = 2),
+        (SELECT COUNT(*) FROM HABITACION WHERE idestadohabitacion = 1),
+        (SELECT COUNT(*) FROM PRODUCTO WHERE cantidad <= 10),
+        -- Suma de ventas + Suma de pagos de habitación realizados hoy
+        (SELECT COALESCE(SUM(total), 0) + (SELECT COALESCE(SUM(totalpagado), 0) 
+         FROM RECEPCION WHERE fechasalidaconfirmacion::date = CURRENT_DATE) 
+         FROM VENTA WHERE fechacreacion::date = CURRENT_DATE);
+END;
+$$ LANGUAGE plpgsql;
+
+
 
 select * from venta;
 
 
-select * from venta;
 
-SELECT * FROM RECEPCION 
-WHERE idhabitacion = 13 
-AND estado = '1';
+
+
+

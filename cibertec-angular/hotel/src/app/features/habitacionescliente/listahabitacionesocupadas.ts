@@ -1,18 +1,13 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
-
 import { HabitacionService } from '../../core/services/habitacion.service';
 import { PisoService } from '../../core/services/piso.service';
 import { CategoriaService } from '../../core/services/categoria.service';
 import { Habitacion } from '../../core/models/Habitacion';
-
-interface HabCardExtendida extends Habitacion {
-  categoriaNombre: string;
-}
 
 @Component({
   selector: 'app-listahabitacionesocupadas',
@@ -25,75 +20,62 @@ export class ListaHabitacionesEstadoComponent implements OnInit {
   private readonly habService = inject(HabitacionService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly pisoService = inject(PisoService);
   private readonly catService = inject(CategoriaService);
 
-  habitaciones: HabCardExtendida[] = [];
-  pisos: any[] = [];
-  idPisoSeleccionado = 0;
-  isLoading = false;
+  // Estados como Signals
+  habitaciones = signal<Habitacion[]>([]);
+  pisos = signal<any[]>([]);
+  idPisoSeleccionado = signal<number>(0);
+  estadoFiltro = signal<number>(2);
+  isLoading = signal<boolean>(false);
+  categoriasMap = signal<Map<number, string>>(new Map());
 
-  // Estado del filtro obtenido por la ruta (1 = Disponible, 2 = Ocupado)
-  estadoFiltro: number = 2;
+  // Computados reactivos
+  readonly esVistaOcupadas = computed(() => this.estadoFiltro() === 2);
+
+  readonly habitacionesFiltradas = computed(() => {
+    const pId = Number(this.idPisoSeleccionado());
+    const lista = this.habitaciones();
+    return pId === 0 ? lista : lista.filter(h => Number(h.idPiso) === pId);
+  });
 
   ngOnInit(): void {
-    // Captura los metadatos configurados en el app.routes.ts de manera segura
-    this.estadoFiltro = this.route.snapshot.data['tipoEstado'] ?? 2;
-
-    this.cargarPisos();
-    this.cargarHabitacionesporEstado();
+    this.estadoFiltro.set(this.route.snapshot.data['tipoEstado'] ?? 2);
+    this.cargarDatos();
   }
 
-  cargarPisos(): void {
-    this.pisoService.listar().subscribe({
-      next: (res) => {
-        this.pisos = res.data ?? [];
-        this.cdr.markForCheck();
-      },
-      error: () => console.error('Error al cargar la lista de pisos')
-    });
-  }
-
-  cargarHabitacionesporEstado(): void {
-    this.isLoading = true;
-
+  private cargarDatos(): void {
+    this.isLoading.set(true);
     forkJoin({
-      habitaciones: this.habService.listar(),
-      categorias: this.catService.listar()
+      h: this.habService.listar(),
+      c: this.catService.listar(),
+      p: this.pisoService.listar()
     }).subscribe({
-      next: (res) => {
-        const cats = res.categorias.data ?? [];
+      next: ({ h, c, p }) => {
+        this.habitaciones.set((h.data || []).filter(item =>
+          Number(item.idEstadoHabitacion) === this.estadoFiltro() && item.estado !== false
+        ));
+        this.pisos.set(p.data || []);
 
-        this.habitaciones = (res.habitaciones.data ?? [])
-          .filter((h: Habitacion) => Number(h.idEstadoHabitacion) === this.estadoFiltro && h.estado !== false)
-          .map((h: Habitacion) => ({
-            ...h,
-            categoriaNombre: cats.find(c => Number(c.idCategoria) === Number(h.idCategoria))?.descripcion ?? 'Estándar'
-          }));
+        const map = new Map<number, string>();
+        c.data?.forEach(cat => map.set(Number(cat.idCategoria), cat.descripcion));
+        this.categoriasMap.set(map);
 
-        this.isLoading = false;
-        this.cdr.markForCheck();
+        this.isLoading.set(false);
       },
       error: () => {
-        this.isLoading = false;
-        this.cdr.markForCheck();
-        Swal.fire('Error', 'No se pudieron recuperar las habitaciones desde el servidor.', 'error');
+        this.isLoading.set(false);
+        Swal.fire('Error', 'No se pudieron recuperar los datos.', 'error');
       }
     });
   }
 
-  irAVenta(idHabitacion: number | undefined): void {
-    if (!idHabitacion) return;
-    this.router.navigate(['/admin/ventaproductos', idHabitacion]);
+  getCategoriaNombre(id: number): string {
+    return this.categoriasMap().get(Number(id)) || 'Estándar';
   }
 
-  get habitacionesFiltradas(): HabCardExtendida[] {
-    const pId = Number(this.idPisoSeleccionado);
-    return pId === 0 ? this.habitaciones : this.habitaciones.filter(h => Number(h.idPiso) === pId);
-  }
-
-  get esVistaOcupadas(): boolean {
-    return this.estadoFiltro === 2;
+  irAVenta(id?: number): void {
+    if (id) this.router.navigate(['/admin/ventaproductos', id]);
   }
 }

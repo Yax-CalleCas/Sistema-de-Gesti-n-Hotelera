@@ -1,7 +1,6 @@
-// src/app/core/services/persona.service.ts
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay } from 'rxjs';
 import { Persona } from '../models/persona.model';
 import { ApiResponse } from '../models/ApiResponse';
 
@@ -9,9 +8,15 @@ import { ApiResponse } from '../models/ApiResponse';
 export class PersonaService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = 'http://localhost:8081/api/persona';
+  private listarCache$?: Observable<ApiResponse<Persona[]>>;
 
   listar(): Observable<ApiResponse<Persona[]>> {
-    return this.http.get<ApiResponse<Persona[]>>(`${this.baseUrl}/listar`);
+    if (!this.listarCache$) {
+      this.listarCache$ = this.http.get<ApiResponse<Persona[]>>(`${this.baseUrl}/listar`).pipe(
+        shareReplay(1)
+      );
+    }
+    return this.listarCache$;
   }
 
   obtenerPorId(id: number): Observable<ApiResponse<Persona>> {

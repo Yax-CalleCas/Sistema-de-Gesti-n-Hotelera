@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay } from 'rxjs';
 import { ApiResponse } from '../models/ApiResponse';
 import { Piso } from '../../core/models/piso';
 
@@ -8,9 +8,13 @@ import { Piso } from '../../core/models/piso';
 export class PisoService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = 'http://localhost:8081/api/piso';
+  private listarCache$?: Observable<ApiResponse<Piso[]>>;
 
   listar(): Observable<ApiResponse<Piso[]>> {
-    return this.http.get<ApiResponse<Piso[]>>(`${this.baseUrl}/listar`);
+    if (!this.listarCache$) {
+      this.listarCache$ = this.http.get<ApiResponse<Piso[]>>(`${this.baseUrl}/listar`).pipe(shareReplay(1));
+    }
+    return this.listarCache$;
   }
 
   buscar(id: number): Observable<ApiResponse<Piso>> {

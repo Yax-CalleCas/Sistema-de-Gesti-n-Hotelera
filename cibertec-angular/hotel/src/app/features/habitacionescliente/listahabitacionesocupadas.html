@@ -1,137 +1,57 @@
 <div class="container py-4">
-
   <div class="dashboard-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
-
     <div class="d-flex align-items-center">
       <div class="header-icon me-3">
-        <i class="bi"
-           [ngClass]="esVistaOcupadas ? 'bi-house-lock-fill' : 'bi-house-door-fill'">
-        </i>
+        <i class="bi" [class.bi-house-lock-fill]="esVistaOcupadas()" [class.bi-house-door-fill]="!esVistaOcupadas()"></i>
       </div>
-
       <div>
-        <h2 class="fw-bold mb-1"
-            [ngClass]="esVistaOcupadas ? 'text-danger-emphasis' : 'text-success-emphasis'">
-          {{ esVistaOcupadas ? 'Habitaciones Ocupadas' : 'Habitaciones Disponibles' }}
+        <h2 class="fw-bold mb-1" [class.text-danger-emphasis]="esVistaOcupadas()" [class.text-success-emphasis]="!esVistaOcupadas()">
+          {{ esVistaOcupadas() ? 'Habitaciones Ocupadas' : 'Habitaciones Disponibles' }}
         </h2>
-
-        <small class="text-muted">
-          Estado actualizado de las habitaciones del hotel
-        </small>
+        <small class="text-muted">Estado actualizado de las habitaciones del hotel</small>
       </div>
     </div>
 
     <div class="filtro-box">
       <label class="form-label fw-semibold small mb-1">
-        <i class="bi bi-funnel-fill me-1"></i>
-        Filtrar por piso
+        <i class="bi bi-funnel-fill me-1"></i> Filtrar por piso
       </label>
-
-      <select
-        class="form-select shadow-sm"
-        [(ngModel)]="idPisoSeleccionado">
-
+      <select class="form-select shadow-sm" [ngModel]="idPisoSeleccionado()" (ngModelChange)="idPisoSeleccionado.set($event)">
         <option [ngValue]="0">Todos los pisos</option>
-
-        <option
-          *ngFor="let p of pisos"
-          [ngValue]="p.idPiso">
-
-          {{ p.descripcion || p.nombre }}
-
-        </option>
-
+        <option *ngFor="let p of pisos()" [ngValue]="p.idPiso">{{ p.descripcion || p.nombre }}</option>
       </select>
     </div>
-
   </div>
 
-  <div *ngIf="isLoading" class="text-center py-5">
-
-    <div class="spinner-border text-warning spinner-lg" role="status">
-      <span class="visually-hidden">Cargando...</span>
-    </div>
-
-    <p class="text-muted mt-3 fw-semibold">
-      Sincronizando habitaciones...
-    </p>
-
+  <div *ngIf="isLoading()" class="text-center py-5">
+    <div class="spinner-border text-warning spinner-lg" role="status"></div>
+    <p class="text-muted mt-3 fw-semibold">Sincronizando habitaciones...</p>
   </div>
 
-  <div class="row g-4" *ngIf="!isLoading">
-
-    <div
-      class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2"
-      *ngFor="let h of habitacionesFiltradas">
-
+  <div class="row g-4" *ngIf="!isLoading()">
+    <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2" *ngFor="let h of habitacionesFiltradas()">
       <div class="card room-card border-0 shadow h-100">
-
         <div class="card-body text-center d-flex flex-column">
-
           <div class="room-icon mx-auto mb-3">
-
-            <i
-              class="bi"
-              [ngClass]="esVistaOcupadas ? 'bi-house-lock-fill' : 'bi-house-door-fill'">
-            </i>
-
+            <i class="bi" [class.bi-house-lock-fill]="esVistaOcupadas()" [class.bi-house-door-fill]="!esVistaOcupadas()"></i>
           </div>
-
-          <h4 class="fw-bold mb-1">
-            Hab. {{ h.numero }}
-          </h4>
-
-          <span class="badge categoria-badge mx-auto mb-3">
-            {{ h.categoriaNombre }}
-          </span>
-
+          <h4 class="fw-bold mb-1">Hab. {{ h.numero }}</h4>
+          <span class="badge categoria-badge mx-auto mb-3">{{ getCategoriaNombre(h.idCategoria) }}</span>
           <div class="mt-auto">
-
-            <button
-              *ngIf="esVistaOcupadas"
-              class="btn btn-warning w-100 fw-semibold shadow-sm"
-              (click)="irAVenta(h.idHabitacion)">
-
-              <i class="bi bi-cart-plus-fill me-2"></i>
-              Realizar Pedido
-
+            <button *ngIf="esVistaOcupadas()" class="btn btn-warning w-100 fw-semibold shadow-sm" (click)="irAVenta(h.idHabitacion)">
+              <i class="bi bi-cart-plus-fill me-2"></i> Realizar Pedido
             </button>
-
-            <div
-              *ngIf="!esVistaOcupadas"
-              class="estado-disponible">
-
-              <i class="bi bi-check-circle-fill me-1"></i>
-              Disponible
-
+            <div *ngIf="!esVistaOcupadas()" class="estado-disponible">
+              <i class="bi bi-check-circle-fill me-1"></i> Disponible
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
 
-    <div
-      class="col-12 text-center py-5"
-      *ngIf="habitacionesFiltradas.length === 0">
-
-      <div class="empty-icon mb-3">
-        <i class="bi bi-building-fill"></i>
-      </div>
-
-      <h4 class="fw-bold text-secondary">
-        No hay habitaciones disponibles
-      </h4>
-
-      <p class="text-muted">
-        No se encontraron resultados para el filtro seleccionado.
-      </p>
-
+    <div class="col-12 text-center py-5" *ngIf="habitacionesFiltradas().length === 0">
+      <div class="empty-icon mb-3"><i class="bi bi-building-fill"></i></div>
+      <h4 class="fw-bold text-secondary">No hay habitaciones encontradas</h4>
     </div>
-
   </div>
-
 </div>

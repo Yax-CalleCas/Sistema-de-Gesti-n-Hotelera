@@ -118,23 +118,35 @@ public class RecepcionServiceImpl implements RecepcionService {
 
         return toDto(repository.save(recepcion));
     }
+    @Override
     @Transactional
     public Boolean procesarSalida(Integer idRecepcion, Integer idHabitacion, BigDecimal penalidad, BigDecimal total) {
+        // 1. Definimos el procedimiento llamando al nombre exacto de la BD
         StoredProcedureQuery query = entityManager.createStoredProcedureQuery("sp_RegistrarSalida");
 
+        // 2. Registramos parámetros de ENTRADA
         query.registerStoredProcedureParameter("p_IdRecepcion", Integer.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_IdHabitacion", Integer.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_CostoPenalidad", BigDecimal.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_TotalPagado", BigDecimal.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("Resultado", Boolean.class, ParameterMode.OUT);
 
+        // 3. Registramos el parámetro de SALIDA (Debe llamarse igual que en el Procedure)
+        query.registerStoredProcedureParameter("p_Resultado", Boolean.class, ParameterMode.OUT);
+
+        // 4. Asignamos valores
         query.setParameter("p_IdRecepcion", idRecepcion);
         query.setParameter("p_IdHabitacion", idHabitacion);
         query.setParameter("p_CostoPenalidad", penalidad);
         query.setParameter("p_TotalPagado", total);
 
+        // 5. Ejecución
         query.execute();
-        return (Boolean) query.getOutputParameterValue("Resultado");
+
+        // 6. Captura segura del resultado
+        Boolean resultado = (Boolean) query.getOutputParameterValue("p_Resultado");
+
+        // Retornamos el resultado del SP, por defecto false si llegara a ser nulo
+        return resultado != null && resultado;
     }
     @Override
     @Transactional

@@ -34,6 +34,11 @@ export const routes: Routes = [
         path: 'habitacion',
         loadComponent: () => import('./features/habitacion/habitacion-list').then(m => m.HabitacionListComponent)
       },
+      // ... dentro del bloque children del path 'admin' ...
+{
+  path: 'reportes',
+  loadComponent: () => import('./features/reportes/reportes-manager/reportescomponent').then(m => m.ReportesComponent)
+},
       {
         path: 'piso',
         loadComponent: () => import('./features/piso/piso').then(m => m.PisoComponent)

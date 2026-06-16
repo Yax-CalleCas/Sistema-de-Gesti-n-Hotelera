@@ -38,6 +38,10 @@ public class Producto {
     @Column(name = "estado")
     private Boolean estado;
 
+    // Campo nuevo para la URL de la imagen
+    @Column(name = "imagen_url", length = 500)
+    private String imagenUrl;
+
     @Column(name = "fechacreacion")
     private LocalDateTime fechaCreacion;
 

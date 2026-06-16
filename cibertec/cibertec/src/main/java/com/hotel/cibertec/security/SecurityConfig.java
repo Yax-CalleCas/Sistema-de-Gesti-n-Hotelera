@@ -35,10 +35,23 @@ public class SecurityConfig {
                 .cors(c -> c.configurationSource(corsConfigurationSource())) // HABILITA CORS
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/persona/registrar", "/api/persona/login").permitAll()
-                        .anyRequest().authenticated()
-                )
+
+                        .authorizeHttpRequests(auth -> auth
+                                .requestMatchers(
+                                        "/api/auth/**",
+                                        "/api/persona/**",
+                                        "/api/producto/**",
+                                        "/api/detalleventa/**",
+
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html",
+                                        "/v3/api-docs/**",
+                                        "/api-docs/**",
+                                        "/webjars/**"
+                                ).permitAll()
+                                .anyRequest().authenticated()
+                        )
+
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

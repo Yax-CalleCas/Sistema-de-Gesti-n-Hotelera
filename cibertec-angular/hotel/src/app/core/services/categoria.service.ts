@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay } from 'rxjs';
 import { ApiResponse } from '../models/ApiResponse';
 import { Categoria } from '../../core/models/categoria.model';
 
@@ -8,11 +8,16 @@ import { Categoria } from '../../core/models/categoria.model';
 export class CategoriaService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = 'http://localhost:8081/api/categoria';
+  private listarCache$?: Observable<ApiResponse<Categoria[]>>;
 
   listar(): Observable<ApiResponse<Categoria[]>> {
-    return this.http.get<ApiResponse<Categoria[]>>(`${this.baseUrl}/listar`);
+    if (!this.listarCache$) {
+      this.listarCache$ = this.http.get<ApiResponse<Categoria[]>>(`${this.baseUrl}/listar`).pipe(shareReplay(1));
+    }
+    return this.listarCache$;
   }
 
+  // Métodos de mutación permanecen igual para asegurar consistencia
   buscar(id: number): Observable<ApiResponse<Categoria>> {
     return this.http.get<ApiResponse<Categoria>>(`${this.baseUrl}/buscar/${id}`);
   }

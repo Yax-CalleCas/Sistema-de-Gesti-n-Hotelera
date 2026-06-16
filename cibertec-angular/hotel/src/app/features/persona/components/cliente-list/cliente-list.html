@@ -7,20 +7,18 @@
   </div>
 
   <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body">
-      <div class="row g-3 align-items-center">
-        <div class="col-md-4">
-          <label class="small text-muted mb-1">Mostrar registros</label>
-          <select class="form-select form-select-sm" [(ngModel)]="itemsPerPage" (change)="currentPage=1">
-            <option [value]="10">10</option>
-            <option [value]="25">25</option>
-            <option [value]="50">50</option>
-          </select>
-        </div>
-        <div class="col-md-8 text-md-end">
-          <label class="small text-muted mb-1">Buscar</label>
-          <input type="text" class="form-control" [(ngModel)]="terminoBusqueda" (input)="currentPage=1" placeholder="Nombre, apellido o documento...">
-        </div>
+    <div class="card-body row g-3">
+      <div class="col-md-2">
+        <label class="small text-muted">Registros</label>
+        <select class="form-select form-select-sm" [(ngModel)]="itemsPerPage" (change)="currentPage=1">
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+      <div class="col-md-10">
+        <label class="small text-muted">Buscar</label>
+        <input class="form-control" [(ngModel)]="terminoBusqueda" (input)="currentPage=1" placeholder="Filtrar por nombre, apellido o documento...">
       </div>
     </div>
   </div>
@@ -39,23 +37,23 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of paginatedPersonas">
+          <tr *ngFor="let p of paginatedPersonas; trackBy: trackByPersona">
             <td><span class="badge bg-secondary">{{ p.tipoDocumento }}</span></td>
             <td>{{ p.documento }}</td>
             <td>{{ p.nombre }}</td>
             <td>{{ p.apellido }}</td>
             <td>{{ p.correo }}</td>
             <td class="text-center">
-              <button class="btn btn-sm btn-outline-warning me-1" (click)="editarCliente(p)">
+              <button class="btn btn-sm btn-outline-warning me-1" (click)="editarCliente(p)" type="button">
                 <i class="bi bi-pencil-fill"></i>
               </button>
-              <button class="btn btn-sm btn-outline-danger" (click)="eliminar(p.idPersona)">
+              <button class="btn btn-sm btn-outline-danger" (click)="eliminar(p.idPersona)" type="button">
                 <i class="bi bi-trash-fill"></i>
               </button>
             </td>
           </tr>
           <tr *ngIf="filteredPersonas.length === 0">
-            <td colspan="6" class="text-center text-muted py-4">No se encontraron clientes que coincidan con la búsqueda.</td>
+            <td colspan="6" class="text-center text-muted py-4">No se encontraron registros.</td>
           </tr>
         </tbody>
       </table>
@@ -87,105 +85,39 @@
       <div class="modal-body">
         <form #f="ngForm" (ngSubmit)="f.valid && guardar()" novalidate>
           <div class="row g-3">
-
             <div class="col-md-4">
               <label class="form-label small fw-bold">Tipo Doc</label>
-              <select
-                [(ngModel)]="personaSeleccionada.tipoDocumento"
-                name="tipo"
-                #tipo="ngModel"
-                class="form-select"
-                [class.is-invalid]="tipo.invalid && (tipo.dirty || tipo.touched || f.submitted)"
-                required>
-                <option value="" disabled selected>Seleccione...</option>
+              <select [(ngModel)]="personaSeleccionada.tipoDocumento" name="tipo" class="form-select" required>
+                <option value="" disabled>Seleccione...</option>
                 <option value="DNI">DNI</option>
                 <option value="CARNE EXTRANJERIA">CARNE EXTRANJERIA</option>
                 <option value="RUC">RUC</option>
               </select>
-              <div class="invalid-feedback">El tipo de documento es obligatorio.</div>
             </div>
-
             <div class="col-md-4">
               <label class="form-label small fw-bold">Documento</label>
-              <input
-                [(ngModel)]="personaSeleccionada.documento"
-                name="doc"
-                #doc="ngModel"
-                class="form-control"
-                [class.is-invalid]="doc.invalid && (doc.dirty || doc.touched || f.submitted)"
-                placeholder="Número de documento"
-                required>
-              <div class="invalid-feedback">El número de documento es obligatorio.</div>
+              <input [(ngModel)]="personaSeleccionada.documento" name="doc" class="form-control" required>
             </div>
-
             <div class="col-md-4">
               <label class="form-label small fw-bold">Nombre</label>
-              <input
-                [(ngModel)]="personaSeleccionada.nombre"
-                name="nombre"
-                #nombre="ngModel"
-                class="form-control"
-                [class.is-invalid]="nombre.invalid && (nombre.dirty || nombre.touched || f.submitted)"
-                placeholder="Nombres completos"
-                required>
-              <div class="invalid-feedback">El nombre es obligatorio.</div>
+              <input [(ngModel)]="personaSeleccionada.nombre" name="nombre" class="form-control" required>
             </div>
-
             <div class="col-md-4">
               <label class="form-label small fw-bold">Apellido</label>
-              <input
-                [(ngModel)]="personaSeleccionada.apellido"
-                name="apellido"
-                #apellido="ngModel"
-                class="form-control"
-                [class.is-invalid]="apellido.invalid && (apellido.dirty || apellido.touched || f.submitted)"
-                placeholder="Apellidos completos"
-                required>
-              <div class="invalid-feedback">El apellido es obligatorio.</div>
+              <input [(ngModel)]="personaSeleccionada.apellido" name="apellido" class="form-control" required>
             </div>
-
             <div class="col-md-4">
-              <label class="form-label small fw-bold">Correo Electrónico</label>
-              <input
-                type="email"
-                [(ngModel)]="personaSeleccionada.correo"
-                name="correo"
-                #correo="ngModel"
-                class="form-control"
-                [class.is-invalid]="correo.invalid && (correo.dirty || correo.touched || f.submitted)"
-                placeholder="ejemplo@correo.com"
-                email
-                required>
-              <div class="invalid-feedback">
-                <span *ngIf="correo.errors?.['required']">El correo electrónico es obligatorio.</span>
-                <span *ngIf="correo.errors?.['email']">El formato del correo no es válido.</span>
-              </div>
+              <label class="form-label small fw-bold">Correo</label>
+              <input type="email" [(ngModel)]="personaSeleccionada.correo" name="correo" class="form-control" required>
             </div>
-
             <div class="col-md-4">
               <label class="form-label small fw-bold">Contraseña</label>
-              <input
-                type="password"
-                [(ngModel)]="personaSeleccionada.clave"
-                name="clave"
-                #clave="ngModel"
-                class="form-control"
-                [class.is-invalid]="clave.invalid && (clave.dirty || clave.touched || f.submitted)"
-                placeholder="Mínimo 6 caracteres"
-                minlength="6"
-                required>
-              <div class="invalid-feedback">
-                <span *ngIf="clave.errors?.['required']">La contraseña es obligatoria.</span>
-                <span *ngIf="clave.errors?.['minlength']">Debe tener al menos 6 caracteres.</span>
-              </div>
+              <input type="password" [(ngModel)]="personaSeleccionada.clave" name="clave" class="form-control" [required]="!personaSeleccionada.idPersona">
             </div>
-
           </div>
-
-          <div class="modal-footer border-0 mt-4 shadow-sm bg-light rounded px-3 py-2">
+          <div class="modal-footer border-0 mt-4">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            <button type="submit" class="btn btn-success px-4" [disabled]="guardando">
-              <span *ngIf="guardando" class="spinner-border spinner-border-sm me-1"></span>
+            <button type="submit" class="btn btn-success" [disabled]="guardando">
               {{ guardando ? 'Procesando...' : 'Guardar Datos' }}
             </button>
           </div>

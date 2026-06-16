@@ -22,9 +22,20 @@
           </div>
         </div>
 
+        <div class="row">
+          <div class="col-md-6 mb-2">
+            <label class="form-label small text-muted">Detalle</label>
+            <input formControlName="detalle" class="form-control" placeholder="Descripción breve">
+          </div>
+          <div class="col-md-6 mb-2">
+            <label class="form-label small text-muted">URL de Imagen</label>
+            <input formControlName="imagenUrl" class="form-control" placeholder="https://ejemplo.com/foto.jpg">
+          </div>
+        </div>
+
         <div class="mt-3">
           <button type="submit" class="btn btn-success me-2" [disabled]="form.invalid">
-            <i class="bi bi-save"></i> Guardar
+            <i class="bi bi-save"></i> {{ isEdit ? 'Actualizar' : 'Guardar' }}
           </button>
           <button type="button" class="btn btn-secondary" (click)="cancelar()">
             Cancelar
@@ -36,17 +47,14 @@
 
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="h4 mb-0">Listado de Productos</h2>
-    <button class="btn btn-primary" (click)="isEdit = false" *ngIf="!isEdit && !form.dirty">
+    <button class="btn btn-primary" (click)="isEdit = false; form.markAsDirty()" *ngIf="!isEdit && !form.dirty">
       <i class="bi bi-plus-circle"></i> Nuevo Producto
     </button>
   </div>
 
   <section class="position-relative">
-
     <div *ngIf="isLoading" class="d-flex justify-content-center align-items-center my-5">
-      <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-        <span class="visually-hidden">Cargando datos...</span>
-      </div>
+      <div class="spinner-border text-primary" role="status"></div>
       <span class="ms-3 text-muted">Sincronizando con el servidor...</span>
     </div>
 
@@ -54,14 +62,18 @@
       <table class="table table-hover align-middle">
         <thead class="table-light">
           <tr>
+            <th>Imagen</th>
             <th>Nombre</th>
-            <th style="width: 15%;">Precio</th>
-            <th style="width: 15%;">Stock</th>
-            <th style="width: 20%;" class="text-center">Acciones</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th class="text-center">Acciones</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let p of productos">
+            <td>
+              <img [src]="p.imagenUrl" alt="img" style="width: 40px; height: 40px; object-fit: cover;" class="rounded-circle">
+            </td>
             <td class="fw-semibold">{{ p.nombre }}</td>
             <td>{{ p.precio | currency:'S/.' }}</td>
             <td>
@@ -70,10 +82,10 @@
               </span>
             </td>
             <td class="text-center">
-              <button class="btn btn-warning btn-sm me-2" (click)="editar(p)" title="Editar producto">
+              <button class="btn btn-warning btn-sm me-2" (click)="editar(p)">
                 <i class="bi bi-pencil"></i>
               </button>
-              <button class="btn btn-danger btn-sm" (click)="eliminar(p.idProducto)" title="Eliminar producto">
+              <button class="btn btn-danger btn-sm" (click)="eliminar(p.idProducto)">
                 <i class="bi bi-trash"></i>
               </button>
             </td>
@@ -83,8 +95,7 @@
     </div>
 
     <div *ngIf="!isLoading && productos.length === 0" class="alert alert-info text-center my-4">
-      <p class="mb-0">No se encontraron productos registrados en el sistema.</p>
+      No hay productos registrados.
     </div>
-
   </section>
 </main>

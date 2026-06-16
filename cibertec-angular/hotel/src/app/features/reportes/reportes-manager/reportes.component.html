@@ -1,0 +1,46 @@
+<div class="container-fluid mt-4">
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3"><select class="form-select" [(ngModel)]="tipoReporte"><option value="ventas">Ventas</option><option value="ocupacion">Ocupación</option><option value="cobros">Cobros</option></select></div>
+        <div class="col-md-3"><input type="datetime-local" class="form-control" [(ngModel)]="fechaInicio"></div>
+        <div class="col-md-3"><input type="datetime-local" class="form-control" [(ngModel)]="fechaFin" [min]="fechaInicio"></div>
+        <div class="col-md-3 d-grid"><button class="btn btn-primary" (click)="generarReporte()" [disabled]="isLoading">{{ isLoading ? 'Cargando...' : 'Generar' }}</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+  <div class="card shadow-sm border-0" *ngIf="!isLoading && resultados.length">
+    <div class="card-header bg-light d-flex justify-content-between">
+      <strong>{{ tipoReporte | titlecase }}</strong>
+      <span class="badge bg-primary">{{ resultados.length }} registros</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <ng-container [ngSwitch]="tipoReporte">
+              <ng-container *ngSwitchCase="'ventas'"><th>Producto</th><th>Cantidad</th><th class="text-end">Total</th></ng-container>
+              <ng-container *ngSwitchCase="'ocupacion'"><th>Habitación</th><th>Categoría</th><th class="text-end">Veces Alquilada</th></ng-container>
+              <ng-container *ngSwitchCase="'cobros'"><th>Cliente</th><th>Habitación</th><th class="text-end">Monto</th><th>Fecha Pago</th></ng-container>
+            </ng-container>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of resultados">
+            <ng-container [ngSwitch]="tipoReporte">
+              <ng-container *ngSwitchCase="'ventas'"><td>{{ item.nombreProducto }}</td><td>{{ item.cantidadTotalVendida }}</td><td class="text-end text-success fw-bold">S/. {{ item.totalIngresado | number:'1.2-2' }}</td></ng-container>
+              <ng-container *ngSwitchCase="'ocupacion'"><td>{{ item.numeroHabitacion }}</td><td>{{ item.categoria }}</td><td class="text-end">{{ item.vecesAlquilada }}</td></ng-container>
+              <ng-container *ngSwitchCase="'cobros'"><td>{{ item.nombreCliente }}</td><td>{{ item.numeroHabitacion }}</td><td class="text-end text-success fw-bold">S/. {{ item.totalPagado | number:'1.2-2' }}</td><td>{{ item.fechaPago | date:'dd/MM/yyyy HH:mm' }}</td></ng-container>
+            </ng-container>
+          </tr>
+        </tbody>
+        <tfoot *ngIf="totalGeneral">
+          <tr class="table-primary"><td colspan="2" class="text-end fw-bold">TOTAL GENERAL</td><td class="fw-bold fs-5 text-end">S/. {{ totalGeneral | number:'1.2-2' }}</td><td *ngIf="tipoReporte === 'cobros'"></td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>

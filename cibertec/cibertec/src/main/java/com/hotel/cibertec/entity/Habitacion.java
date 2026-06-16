@@ -40,6 +40,8 @@ public class Habitacion {
     @ManyToOne
     @JoinColumn(name = "idcategoria") // Relación correcta
     private Categoria categoria;
+    @OneToMany(mappedBy = "habitacion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ImagenHabitacion> imagenes;
 
     @Column(name = "estado")
     private Boolean estado;

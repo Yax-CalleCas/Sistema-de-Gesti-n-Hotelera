@@ -1,24 +1,26 @@
 import { Component } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { Observable } from 'rxjs';
+import { ReporteService } from '../../../core/services/ReporteService';
+import { DashboardStatsDto } from '../../../core/models/DashboardStatsDto';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
+  imports: [CommonModule],
   templateUrl: './admin-dashboard.html'
 })
 export class AdminDashboard {
+  // Observable directo para el async pipe
+  stats$: Observable<DashboardStatsDto>;
 
-  constructor(private router: Router) {}
+  constructor(private router: Router, private reporteService: ReporteService) {
+    this.stats$ = this.reporteService.getDashboardStats();
+  }
 
   cerrarSesion(): void {
-
-
-    localStorage.removeItem('token');
-
-    localStorage.removeItem('usuario');
-    localStorage.removeItem('rol');
-
-    // Redirige al login
+    localStorage.clear();
     this.router.navigate(['/login']);
   }
 }

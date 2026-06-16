@@ -1,51 +1,55 @@
 <div class="container py-4">
-  <h2 class="text-primary fw-bold mb-4"><i class="bi bi-people-fill me-2"></i> Gestión de Personas</h2>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="text-primary fw-bold mb-0"><i class="bi bi-people-fill me-2"></i> Gestión de Personas</h2>
+    <button class="btn btn-outline-primary" (click)="cargarPersonas()" [disabled]="isProcessing()">
+      <i class="bi bi-arrow-clockwise me-1"></i> Refrescar Lista
+    </button>
+  </div>
 
   <section class="card shadow-sm mb-4">
     <div class="card-header bg-primary text-white fw-bold py-2">
-      {{ personaSeleccionada.idPersona ? 'Editar' : 'Registrar' }} Persona
+      {{ personaSeleccionada().idPersona ? 'Editar' : 'Registrar' }} Persona
     </div>
     <div class="card-body">
       <form #f="ngForm" (ngSubmit)="f.valid && guardar()">
         <div class="row g-2">
           <div class="col-md-2">
-            <input class="form-control" name="tipo" [(ngModel)]="personaSeleccionada.tipoDocumento" placeholder="Tipo Doc" required>
+            <input class="form-control" name="tipo" [ngModel]="personaSeleccionada().tipoDocumento" (ngModelChange)="personaSeleccionada.update(p => ({...p, tipoDocumento: $event}))" placeholder="Tipo Doc" required>
           </div>
           <div class="col-md-2">
-            <input class="form-control" name="doc" [(ngModel)]="personaSeleccionada.documento" placeholder="Número" required>
+            <input class="form-control" name="doc" [ngModel]="personaSeleccionada().documento" (ngModelChange)="personaSeleccionada.update(p => ({...p, documento: $event}))" placeholder="Número" required>
           </div>
           <div class="col-md-4">
-            <input class="form-control" name="nombre" [(ngModel)]="personaSeleccionada.nombre" placeholder="Nombre" required>
+            <input class="form-control" name="nombre" [ngModel]="personaSeleccionada().nombre" (ngModelChange)="personaSeleccionada.update(p => ({...p, nombre: $event}))" placeholder="Nombre" required>
           </div>
           <div class="col-md-4">
-            <input class="form-control" name="apellido" [(ngModel)]="personaSeleccionada.apellido" placeholder="Apellido" required>
+            <input class="form-control" name="apellido" [ngModel]="personaSeleccionada().apellido" (ngModelChange)="personaSeleccionada.update(p => ({...p, apellido: $event}))" placeholder="Apellido" required>
           </div>
           <div class="col-md-4">
-            <input type="email" class="form-control" name="correo" [(ngModel)]="personaSeleccionada.correo" placeholder="Correo" required>
+            <input type="email" class="form-control" name="correo" [ngModel]="personaSeleccionada().correo" (ngModelChange)="personaSeleccionada.update(p => ({...p, correo: $event}))" placeholder="Correo" required>
           </div>
 
           <div class="col-md-4">
             <input type="password" class="form-control" name="clave"
-                   [(ngModel)]="personaSeleccionada.clave"
-                   placeholder="{{ personaSeleccionada.idPersona ? 'Nueva contraseña (opcional)' : 'Contraseña' }}"
-                   [required]="!personaSeleccionada.idPersona">
+                   [ngModel]="personaSeleccionada().clave"
+                   (ngModelChange)="personaSeleccionada.update(p => ({...p, clave: $event}))"
+                   [placeholder]="personaSeleccionada().idPersona ? 'Nueva contraseña (opcional)' : 'Contraseña'"
+                   [required]="!personaSeleccionada().idPersona">
           </div>
 
           <div class="col-md-4">
-            <select class="form-select" name="idTipo" [(ngModel)]="personaSeleccionada.idTipoPersona" required>
+            <select class="form-select" name="idTipo" [ngModel]="personaSeleccionada().idTipoPersona" (ngModelChange)="personaSeleccionada.update(p => ({...p, idTipoPersona: $event}))" required>
               <option [ngValue]="0" disabled>Seleccionar Rol</option>
-              <option [ngValue]="1">Administrador</option>
-              <option [ngValue]="2">Empleado</option>
-              <option [ngValue]="3">Cliente</option>
+              <option *ngFor="let rol of roles" [ngValue]="rol.id">{{ rol.nombre }}</option>
             </select>
           </div>
         </div>
 
         <div class="text-end mt-3">
           <button type="button" class="btn btn-outline-secondary me-2" (click)="limpiarFormulario()">Limpiar</button>
-          <button type="submit" class="btn btn-success" [disabled]="!f.valid || isProcessing || personaSeleccionada.idTipoPersona === 0">
-            <span *ngIf="isProcessing" class="spinner-border spinner-border-sm me-1"></span>
-            {{ isProcessing ? 'Guardando...' : (personaSeleccionada.idPersona ? 'Actualizar' : 'Guardar') }}
+          <button type="submit" class="btn btn-success" [disabled]="!f.valid || isProcessing() || personaSeleccionada().idTipoPersona === 0">
+            <span *ngIf="isProcessing()" class="spinner-border spinner-border-sm me-1"></span>
+            {{ isProcessing() ? 'Guardando...' : (personaSeleccionada().idPersona ? 'Actualizar' : 'Guardar') }}
           </button>
         </div>
       </form>
@@ -66,22 +70,33 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of paginatedPersonas">
-            <td><small class="badge bg-light text-dark border">{{ p.tipoDocumento }}</small> {{ p.documento }}</td>
+          <tr *ngFor="let p of paginatedPersonas(); trackBy: trackByPersona">
+            <td>
+              <small class="badge bg-light text-dark border">{{ p.tipoDocumento }}</small>
+              {{ p.documento }}
+            </td>
             <td>{{ p.nombre }} {{ p.apellido }}</td>
             <td>{{ p.correo }}</td>
-            <td><span class="badge" [ngClass]="getRolBadgeClass(p.idTipoPersona)">{{ getRolNombre(p.idTipoPersona) }}</span></td>
+            <td>
+              <span class="badge" [ngClass]="getRolInfo(p.idTipoPersona).badge">
+                {{ getRolInfo(p.idTipoPersona).nombre }}
+              </span>
+            </td>
             <td class="text-center">
               <button class="btn btn-sm" [ngClass]="p.estado ? 'text-success' : 'text-danger'" (click)="cambiarEstado(p)" type="button">
                 <i class="bi" [ngClass]="p.estado ? 'bi-toggle-on fs-4' : 'bi-toggle-off fs-4'"></i>
               </button>
             </td>
             <td class="text-center">
-              <button class="btn btn-sm btn-outline-warning me-1" (click)="editar(p)"><i class="bi bi-pencil"></i></button>
-              <button class="btn btn-sm btn-outline-danger" (click)="eliminar(p.idPersona)"><i class="bi bi-trash"></i></button>
+              <button class="btn btn-sm btn-outline-warning me-1" (click)="editar(p)" type="button">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" (click)="eliminar(p.idPersona)" type="button">
+                <i class="bi bi-trash"></i>
+              </button>
             </td>
           </tr>
-          <tr *ngIf="personas.length === 0">
+          <tr *ngIf="personas().length === 0">
             <td colspan="6" class="text-center text-muted py-4">No se encontraron registros de personas.</td>
           </tr>
         </tbody>

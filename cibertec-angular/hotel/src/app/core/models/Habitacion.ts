@@ -16,8 +16,12 @@ export interface Habitacion {
   estado?: boolean;
   fechaCreacion?: string;
 
-  // Propiedades descriptivas (Mapeadas desde el backend)
-  categoriaNombre?: string; // Antes tenías categoriaDescripcion, unificado a 'Nombre'
+  // Propiedades descriptivas
+  categoriaNombre?: string;
   estadoDescripcion?: string;
   pisoNombre?: string;
+
+  // --- CAMPO NUEVO ---
+  // Representa la lista de URLs que vienen del backend
+  urlsImagenes?: string[];
 }

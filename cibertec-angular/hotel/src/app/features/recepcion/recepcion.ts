@@ -1,18 +1,14 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
-// Servicios
 import { HabitacionService } from '../../core/services/habitacion.service';
 import { PisoService } from '../../core/services/piso.service';
 import { CategoriaService } from '../../core/services/categoria.service';
 import { EstadoHabitacionService } from '../../core/services/EstadoHabitacionService';
-
-// Modelos
 import { Habitacion } from '../../core/models/Habitacion';
-import { Piso } from '../../core/models/piso';
 
 @Component({
   selector: 'app-recepcion',
@@ -23,67 +19,60 @@ import { Piso } from '../../core/models/piso';
 export class RecepcionComponent implements OnInit {
   private readonly habService = inject(HabitacionService);
   private readonly router = inject(Router);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly pisoService = inject(PisoService);
   private readonly catService = inject(CategoriaService);
   private readonly estService = inject(EstadoHabitacionService);
 
-  habitaciones: Habitacion[] = [];
-  pisos: Piso[] = [];
-  idPisoSeleccionado: number = 0;
-  isLoading: boolean = false;
+  // Signals
+  habitaciones = signal<Habitacion[]>([]);
+  pisos = signal<any[]>([]);
+  idPisoSeleccionado = signal<number>(0);
+  isLoading = signal(false);
 
-  ngOnInit(): void {
-    this.cargarDatosIniciales();
-  }
+  // Filtrado reactivo (si cambias piso o habitaciones, se recalcula solo)
+  habitacionesFiltradas = computed(() => {
+    const pId = Number(this.idPisoSeleccionado());
+    return pId === 0
+      ? this.habitaciones()
+      : this.habitaciones().filter(h => Number(h.idPiso) === pId);
+  });
 
-  private cargarDatosIniciales(): void {
-    this.isLoading = true;
+  ngOnInit(): void { this.cargarDatos(); }
 
-    // Ejecución paralela eficiente
+  // Puedes llamar a esto después de que el usuario regrese a la pantalla
+refrescarDatos(): void {
+  this.habService.listar().subscribe(res => {
+
+    this.habitaciones.set(res.data ?? []);
+  });
+}
+  cargarDatos(): void {
+    this.isLoading.set(true);
     forkJoin({
       pisos: this.pisoService.listar(),
       habitaciones: this.habService.listar(),
       categorias: this.catService.listar(),
       estados: this.estService.listar()
     }).subscribe({
-      next: (res) => {
-        this.pisos = res.pisos.data ?? [];
-        const cats = res.categorias.data ?? [];
-        const ests = res.estados.data ?? [];
+      next: ({ pisos, habitaciones, categorias, estados }) => {
+        this.pisos.set(pisos.data ?? []);
 
-        this.habitaciones = (res.habitaciones.data ?? []).map(h => ({
+        const catsMap = new Map((categorias.data ?? []).map(c => [Number(c.idCategoria), c.descripcion]));
+        const estsMap = new Map((estados.data ?? []).map(e => [Number(e.idEstadoHabitacion), e.descripcion]));
+
+        this.habitaciones.set((habitaciones.data ?? []).map(h => ({
           ...h,
-          categoriaNombre: cats.find(c => Number(c.idCategoria) === Number(h.idCategoria))?.descripcion ?? 'N/A',
-          estadoDescripcion: ests.find(e => Number(e.idEstadoHabitacion) === Number(h.idEstadoHabitacion))?.descripcion ?? 'N/A'
-        }));
+          categoriaNombre: catsMap.get(Number(h.idCategoria)) ?? 'N/A',
+          estadoDescripcion: estsMap.get(Number(h.idEstadoHabitacion)) ?? 'N/A'
+        })));
 
-        this.isLoading = false;
-        this.cdr.markForCheck();
+        this.isLoading.set(false);
       },
-      error: (err) => {
-        console.error('Error en carga de datos:', err);
-        this.isLoading = false;
-        this.cdr.markForCheck();
-      }
+      error: () => this.isLoading.set(false)
     });
   }
 
-  // Getter optimizado y seguro para el template
-  get habitacionesFiltradas(): Habitacion[] {
-    const pId = Number(this.idPisoSeleccionado);
-    return pId === 0
-      ? this.habitaciones
-      : this.habitaciones.filter(h => Number(h.idPiso) === pId);
-  }
-
-  onPisoChange(): void {
-    this.cdr.markForCheck();
-  }
-
-  abrirDetalle(h: Habitacion): void {
-    if (h.idHabitacion) {
-      this.router.navigate(['/admin/recepciondetalle', h.idHabitacion]);
-    }
+  abrirDetalle(id?: number): void {
+    if (id) this.router.navigate(['/admin/recepciondetalle', id]);
   }
 }

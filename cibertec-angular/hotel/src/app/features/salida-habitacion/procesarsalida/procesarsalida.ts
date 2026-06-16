@@ -1,8 +1,9 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import Swal from 'sweetalert2';
+
 import { RecepcionService } from '../../../core/services/recepcion.service';
 import { VentaService } from '../../../core/services/venta.service';
 
@@ -17,7 +18,6 @@ interface HospedajeResumen {
   correo: string;
   fechaEntrada: string;
   costoHabitacion: number;
-  amountAdelantado?: number; // Por si acaso se requiere mapear
   cantidadAdelantado: number;
   cantidadRestante: number;
 }
@@ -26,7 +26,7 @@ export interface ItemServicio {
   producto: string;
   cantidad: number;
   precioUnitario: number;
-  estadoVenta: any; // Cambio estratégico a 'any' para evitar bloqueos por tipado estricto en las vistas de Angular
+  estadoVenta: any;
   subTotal: number;
 }
 
@@ -39,32 +39,44 @@ export interface ItemServicio {
 export class Procesarsalida implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly cdr = inject(ChangeDetectorRef);
   private readonly recService = inject(RecepcionService);
   private readonly ventaService = inject(VentaService);
 
-  idHabitacion!: number;
-  isLoading = false;
+  // Signals para el estado
+  isLoading = signal(false);
+  idHabitacion = signal<number>(0);
+  datosHospedaje = signal<HospedajeResumen | null>(null);
+  servicios = signal<ItemServicio[]>([]);
+  costoPenalidad = signal<number>(0);
 
-  datosHospedaje: HospedajeResumen | null = null;
-  servicios: ItemServicio[] = [];
-  costoPenalidad: number = 0;
-  totalConsumosPendientes: number = 0;
-  totalNetoAPagar: number = 0;
+  // Cómputo reactivo: Se recalcula automáticamente cada vez que servicios() o costoPenalidad() cambian
+  totalConsumosPendientes = computed(() =>
+    this.servicios()
+      .filter(s => s.estadoVenta === 'DEBE' || s.estadoVenta === 'PENDIENTE')
+      .reduce((sum, s) => sum + s.subTotal, 0)
+  );
+
+  totalNetoAPagar = computed(() => {
+    const hospedaje = this.datosHospedaje();
+    return (hospedaje?.cantidadRestante ?? 0) +
+           Math.max(this.costoPenalidad(), 0) +
+           this.totalConsumosPendientes();
+  });
 
   ngOnInit(): void {
-    this.idHabitacion = Number(this.route.snapshot.paramMap.get('id'));
-    if (this.idHabitacion) {
-      this.cargarDatosHospedajeActivo();
+    const id = Number(this.route.snapshot.paramMap.get('id'));
+    if (id) {
+      this.idHabitacion.set(id);
+      this.cargarDatos(id);
     }
   }
 
-cargarDatosHospedajeActivo(): void {
-    this.isLoading = true;
-    this.recService.buscarActivaPorHabitacion(this.idHabitacion).subscribe({
+  cargarDatos(idHabitacion: number): void {
+    this.isLoading.set(true);
+    this.recService.buscarActivaPorHabitacion(idHabitacion).subscribe({
       next: (res) => {
         const data = res.data || res;
-        this.datosHospedaje = {
+        this.datosHospedaje.set({
           idRecepcion: data.idRecepcion,
           numeroHabitacion: data.numero,
           detalles: data.detalleHabitacion || data.detalle,
@@ -77,108 +89,80 @@ cargarDatosHospedajeActivo(): void {
           costoHabitacion: data.precioInicial,
           cantidadAdelantado: data.adelanto,
           cantidadRestante: data.precioRestante
-        };
-
-        // OPTIMIZACIÓN: Usamos el método específico pasando el ID de la recepción activa
-        this.ventaService.buscarPorRecepcion(this.datosHospedaje.idRecepcion).subscribe({
-          next: (ventasRes) => {
-            // Evaluamos si la respuesta viene envuelta en un 'data' o directo como array
-            const listaVentas = ventasRes?.data || ventasRes || [];
-            const serviciosMapeados: ItemServicio[] = [];
-
-            listaVentas.forEach((v: any) => {
-              // Validamos ambas nomenclaturas (idRecepcion e idrecepcion) por seguridad
-              const vIdRecepcion = v.idRecepcion ?? v.idrecepcion;
-
-              if (vIdRecepcion === this.datosHospedaje?.idRecepcion) {
-                // Si tu backend maneja una relación Lazy/Eager y trae la lista de productos:
-                if (v.detalles && Array.isArray(v.detalles) && v.detalles.length > 0) {
-                  v.detalles.forEach((d: any) => {
-                    serviciosMapeados.push({
-                      producto: d.nombreProducto || d.producto?.nombre || 'Producto',
-                      cantidad: d.cantidad,
-                      precioUnitario: d.precioUnitario || d.precio,
-                      estadoVenta: v.estado, // Captura 'DEBE' o 'PAGADO' de la bd
-                      subTotal: d.cantidad * (d.precioUnitario || d.precio)
-                    });
-                  });
-                } else {
-                  // CONTINGENCIA: Si el backend no trae la lista de productos anidada,
-                  // mapeamos la fila maestra usando el 'total' económico para que figure en la cuenta.
-                  serviciosMapeados.push({
-                    producto: `Consumo Registrado (Venta N° ${v.idventa || v.idVenta})`,
-                    cantidad: 1,
-                    precioUnitario: v.total,
-                    estadoVenta: v.estado, // Evaluará 'PAGADO' o 'DEBE'
-                    subTotal: v.total
-                  });
-                }
-              }
-            });
-
-            this.servicios = serviciosMapeados;
-            this.calcularTotalFinal();
-            this.isLoading = false;
-            this.cdr.detectChanges();
-          },
-          error: (err) => {
-            console.error("Error al recuperar ventas por recepción:", err);
-            this.servicios = [];
-            this.calcularTotalFinal();
-            this.isLoading = false;
-            this.cdr.detectChanges();
-          }
         });
+
+        this.cargarVentas(data.idRecepcion);
       },
       error: (err) => {
-        this.isLoading = false;
-        console.error(err);
+        this.isLoading.set(false);
         Swal.fire('Error', 'No se pudo cargar la información del hospedaje', 'error');
       }
     });
   }
 
-  calcularTotalFinal(): void {
-    // Filtrado robusto contra deudas pendientes de caja
-    this.totalConsumosPendientes = this.servicios
-      .filter(s => s.estadoVenta === 'DEBE' || s.estadoVenta === 'PENDIENTE')
-      .reduce((sum, current) => sum + current.subTotal, 0);
+  private cargarVentas(idRecepcion: number): void {
+    this.ventaService.buscarPorRecepcion(idRecepcion).subscribe({
+      next: (ventasRes) => {
+        const listaVentas = ventasRes?.data || ventasRes || [];
+        const serviciosMapeados: ItemServicio[] = [];
 
-    const restante = this.datosHospedaje?.cantidadRestante ?? 0;
-    const penalidad = this.costoPenalidad >= 0 ? this.costoPenalidad : 0;
-
-    this.totalNetoAPagar = restante + penalidad + this.totalConsumosPendientes;
+        listaVentas.forEach((v: any) => {
+          if ((v.idRecepcion ?? v.idrecepcion) === idRecepcion) {
+            if (v.detalles?.length > 0) {
+              v.detalles.forEach((d: any) => {
+                serviciosMapeados.push({
+                  producto: d.nombreProducto || 'Producto',
+                  cantidad: d.cantidad,
+                  precioUnitario: d.precioUnitario || d.precio,
+                  estadoVenta: v.estado,
+                  subTotal: d.cantidad * (d.precioUnitario || d.precio)
+                });
+              });
+            } else {
+              serviciosMapeados.push({
+                producto: `Consumo (Venta N° ${v.idventa || v.idVenta})`,
+                cantidad: 1,
+                precioUnitario: v.total,
+                estadoVenta: v.estado,
+                subTotal: v.total
+              });
+            }
+          }
+        });
+        this.servicios.set(serviciosMapeados);
+        this.isLoading.set(false);
+      },
+      error: () => this.isLoading.set(false)
+    });
   }
 
   finalizarCheckOut(): void {
-    if (!this.datosHospedaje) return;
+    const data = this.datosHospedaje();
+    if (!data) return;
 
     Swal.fire({
       title: '¿Confirmar Check-Out?',
-      text: `Total a cobrar al cliente: S/. ${this.totalNetoAPagar.toFixed(2)} (Incluye deudas de habitación y consumos de barra)`,
+      text: `Total a pagar: S/. ${this.totalNetoAPagar().toFixed(2)}`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Sí, Facturar y Desocupar',
-      cancelButtonColor: '#d33',
       confirmButtonColor: '#10b981'
     }).then((result) => {
       if (result.isConfirmed) {
-        this.isLoading = true;
-
+        this.isLoading.set(true);
         this.recService.registrarSalida({
-          idRecepcion: this.datosHospedaje!.idRecepcion,
-          idHabitacion: this.idHabitacion,
-          costoPenalidad: this.costoPenalidad,
-          totalPagado: this.totalNetoAPagar
+          idRecepcion: data.idRecepcion,
+          idHabitacion: this.idHabitacion(),
+          costoPenalidad: this.costoPenalidad(),
+          totalPagado: this.totalNetoAPagar()
         }).subscribe({
           next: () => {
-            Swal.fire('Éxito', 'Pago procesado y habitación desocupada con éxito', 'success')
+            Swal.fire('Éxito', 'Habitación desocupada con éxito', 'success')
               .then(() => this.router.navigate(['/admin/salidaHabitacion']));
           },
           error: (err) => {
-            this.isLoading = false;
-            console.error('Error Status:', err.status);
-            Swal.fire('Error', err.error?.message || 'Error físico al registrar salida en el servidor.', 'error');
+            this.isLoading.set(false);
+            Swal.fire('Error', err.error?.message || 'Error al procesar salida.', 'error');
           }
         });
       }

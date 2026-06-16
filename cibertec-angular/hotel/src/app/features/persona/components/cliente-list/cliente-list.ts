@@ -15,133 +15,90 @@ export class ClienteListComponent implements OnInit {
   private readonly service = inject(PersonaService);
 
   personas: Persona[] = [];
-  personaSeleccionada: Persona = this.crearPersonaVacia();
-  terminoBusqueda: string = '';
-  itemsPerPage: number = 10;
-  currentPage: number = 1;
-  guardando: boolean = false;
+  personaSeleccionada = this.crearPersonaVacia();
+  terminoBusqueda = '';
+  itemsPerPage = 10;
+  currentPage = 1;
+  guardando = false;
 
-  ngOnInit(): void {
-    this.cargarPersonas();
-  }
-
-
-private crearPersonaVacia(): Persona {
-  return {
-    tipoDocumento: '',
-    documento: '',
-    nombre: '',
-    apellido: '',
-    correo: '',
-    clave: '',
-    idTipoPersona: 3,
-    estado: true
-  };
-}
+  ngOnInit(): void { this.cargarPersonas(); }
 
   cargarPersonas(): void {
     this.service.listar().subscribe({
-      next: (res) => {
-        if (res?.data) {
-          this.personas = res.data.filter(p => p.idTipoPersona === 3);
-        }
-      },
-      error: () => {
-        Swal.fire('Error', 'No se pudieron cargar los datos de los clientes', 'error');
-      }
+      next: (res) => this.personas = res?.data.filter(p => p.idTipoPersona === 3) || [],
+      error: () => Swal.fire('Error', 'No se pudieron cargar los clientes', 'error')
     });
   }
 
   guardar(): void {
     if (this.guardando) return;
     this.guardando = true;
-
     const esEdicion = !!this.personaSeleccionada.idPersona;
-    const operacion = esEdicion
+
+    const obs = esEdicion
       ? this.service.actualizar(this.personaSeleccionada.idPersona!, this.personaSeleccionada)
       : this.service.crear(this.personaSeleccionada);
 
-    operacion.subscribe({
+    obs.subscribe({
       next: () => {
-        Swal.fire('Éxito', `Cliente ${esEdicion ? 'actualizado' : 'registrado'} correctamente`, 'success');
+        Swal.fire('Éxito', 'Guardado correctamente', 'success');
         this.cerrarModal();
         this.cargarPersonas();
-        this.guardando = false;
       },
-      error: () => {
-        Swal.fire('Error', 'Ocurrió un problema al guardar los datos', 'error');
-        this.guardando = false;
-      }
+      error: () => Swal.fire('Error', 'Problema al guardar', 'error'),
+      complete: () => this.guardando = false
     });
   }
 
   eliminar(id: number | undefined): void {
     if (!id) return;
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: "¡Esta acción no se puede revertir!",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      confirmButtonText: 'Sí, eliminar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.service.eliminar(id).subscribe(() => {
-          this.cargarPersonas();
-          Swal.fire('Eliminado', 'Cliente eliminado con éxito', 'success');
-        });
-      }
-    });
+    Swal.fire({ title: '¿Seguro?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar' })
+      .then(res => { if (res.isConfirmed) this.service.eliminar(id).subscribe(() => this.cargarPersonas()); });
   }
 
-  editarCliente(persona: Persona): void {
-    this.personaSeleccionada = { ...persona };
-    this.abrirModal();
+  editarCliente(p: Persona): void {
+    this.personaSeleccionada = { ...p };
+    this.toggleModal('show');
   }
 
   nuevoCliente(): void {
     this.personaSeleccionada = this.crearPersonaVacia();
-    this.abrirModal();
+    this.toggleModal('show');
   }
 
-  private abrirModal(): void {
-    const modalElement = document.getElementById('modalPersona');
-    if (modalElement) {
-      const modal = new (window as any).bootstrap.Modal(modalElement);
-      modal.show();
-    }
+  private toggleModal(action: 'show' | 'hide'): void {
+    const el = document.getElementById('modalPersona');
+    const modal = (window as any).bootstrap?.Modal.getInstance(el) || new (window as any).bootstrap.Modal(el);
+    modal[action]();
   }
 
-  private cerrarModal(): void {
-    const modalElement = document.getElementById('modalPersona');
-    if (modalElement) {
-      const modal = (window as any).bootstrap.Modal.getInstance(modalElement);
-      modal?.hide();
-    }
+  private cerrarModal = () => this.toggleModal('hide');
+  private crearPersonaVacia(): Persona { return { tipoDocumento: '', documento: '', nombre: '', apellido: '', correo: '', clave: '', idTipoPersona: 3, estado: true }; }
+
+  // Métodos necesarios para el HTML
+  trackByPersona = (_: number, p: Persona) => p.idPersona;
+
+get filteredPersonas() {
+    const busqueda = this.terminoBusqueda?.toLowerCase().trim() || '';
+
+    return this.personas.filter(p => {
+      // Usamos el operador || '' para asegurar que si el valor es null/undefined,
+      // se convierta en una cadena vacía y no rompa la ejecución.
+      const nombre = (p.nombre || '').toLowerCase();
+      const apellido = (p.apellido || '').toLowerCase();
+      const documento = (p.documento || '').toLowerCase();
+
+      return nombre.includes(busqueda) ||
+             apellido.includes(busqueda) ||
+             documento.includes(busqueda);
+    });
   }
 
-  get filteredPersonas(): Persona[] {
-    const busqueda = this.terminoBusqueda.toLowerCase().trim();
-    if (!busqueda) return this.personas;
-    return this.personas.filter(p =>
-      p.nombre.toLowerCase().includes(busqueda) ||
-      p.apellido.toLowerCase().includes(busqueda) ||
-      p.documento.includes(busqueda)
-    );
-  }
-
-  get paginatedPersonas(): Persona[] {
+  get paginatedPersonas() {
     const start = (this.currentPage - 1) * this.itemsPerPage;
     return this.filteredPersonas.slice(start, start + this.itemsPerPage);
   }
 
-  get totalPages(): number {
-    return Math.ceil(this.filteredPersonas.length / this.itemsPerPage);
-  }
-
-  changePage(page: number): void {
-    if (page >= 1 && page <= this.totalPages) {
-      this.currentPage = page;
-    }
-  }
+  get totalPages() { return Math.ceil(this.filteredPersonas.length / this.itemsPerPage); }
+  changePage(p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage = p; }
 }

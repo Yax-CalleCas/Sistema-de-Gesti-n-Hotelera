@@ -22,6 +22,9 @@ public class EstadoHabitacion {
 
     @Column(name = "descripcion")
     private String descripcion;
+// Dentro de tu entidad Habitacion.java actual, agrega:
+
+
 
     @Column(name = "estado")
     private Boolean estado;

@@ -31,7 +31,8 @@ export class ProductoComponent implements OnInit {
       detalle: [''],
       precio: [0, [Validators.required, Validators.min(0)]],
       cantidad: [0, [Validators.required, Validators.min(0)]],
-      estado: [true]
+      estado: [true],
+      imagenUrl: ['']
     });
   }
 
@@ -114,7 +115,7 @@ export class ProductoComponent implements OnInit {
 
   cancelar(): void {
     this.isEdit = false;
-    this.form.reset({ precio: 0, cantidad: 0, estado: true });
+    this.form.reset({ precio: 0, cantidad: 0, estado: true ,imagenUrl: ''});
   }
 
   private manejarError(err: any): void {
