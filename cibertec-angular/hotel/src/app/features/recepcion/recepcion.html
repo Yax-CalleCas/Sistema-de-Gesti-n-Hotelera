@@ -6,12 +6,13 @@
 
     <div class="d-flex align-items-center gap-2">
       <span class="text-muted small">Filtrar por piso:</span>
-      <select class="form-select form-select-sm"
-              [ngModel]="idPisoSeleccionado()"
-              (ngModelChange)="idPisoSeleccionado.set($event)">
-        <option [ngValue]="0">Todos los pisos</option>
-        <option *ngFor="let p of pisos()" [ngValue]="p.idPiso">{{p.descripcion}}</option>
-      </select>
+  <select class="form-select form-select-sm"
+        aria-label="Filtrar habitaciones por piso"
+        [ngModel]="idPisoSeleccionado()"
+        (ngModelChange)="idPisoSeleccionado.set($event)">
+  <option [ngValue]="0">Todos los pisos</option>
+  <option *ngFor="let p of pisos()" [ngValue]="p.idPiso">{{p.descripcion}}</option>
+</select>
     </div>
   </div>
 
