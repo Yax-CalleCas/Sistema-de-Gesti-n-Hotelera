@@ -1,110 +1,86 @@
-<div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h2 class="text-danger fw-bold"><i class="bi bi-receipt-cutoff me-2"></i> Procesar Salida (Check-Out)</h2>
-      <p class="text-muted">Gestión de facturación, penalidades y consumos pendientes.</p>
-    </div>
-    <button type="button" class="btn btn-outline-secondary" routerLink="/admin/salidaHabitacion">
-      <i class="bi bi-arrow-left"></i> Volver
-    </button>
-  </div>
-
-  <div *ngIf="isLoading()" class="text-center py-5">
-    <div class="spinner-border text-danger" role="status"></div>
-    <p>Cargando información de la habitación...</p>
-  </div>
-
-  <div class="row" *ngIf="!isLoading() && datosHospedaje()">
-    <div class="col-md-7">
-      <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-white fw-bold">Detalles del Hospedaje</div>
-        <div class="card-body">
-          <div class="row">
-            <div class="col-6 mb-3">
-              <label class="text-muted small">Cliente</label>
-              <div class="fw-bold">{{ datosHospedaje()?.clienteNombre }}</div>
-            </div>
-            <div class="col-6 mb-3">
-              <label class="text-muted small">Documento</label>
-              <div class="fw-bold">{{ datosHospedaje()?.nroDocumento }}</div>
-            </div>
-            <div class="col-6">
-              <label class="text-muted small">Habitación</label>
-              <div class="fw-bold">Nº {{ datosHospedaje()?.numeroHabitacion }} ({{ datosHospedaje()?.categoria }})</div>
-            </div>
-            <div class="col-6">
-              <label class="text-muted small">Fecha Entrada</label>
-              <div class="fw-bold">{{ datosHospedaje()?.fechaEntrada | date:'dd/MM/yyyy' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card shadow-sm border-0">
-        <div class="card-header bg-white fw-bold d-flex justify-content-between">
-          <span>Consumos y Servicios</span>
-        </div>
-        <div class="card-body p-0">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Producto</th>
-                <th class="text-center">Cant.</th>
-                <th class="text-end">SubTotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let s of servicios()">
-                <td>{{ s.producto }}</td>
-                <td class="text-center">{{ s.cantidad }}</td>
-                <td class="text-end">S/. {{ s.subTotal | number:'1.2-2' }}</td>
-              </tr>
-              <tr *ngIf="servicios().length === 0">
-                <td colspan="3" class="text-center py-3 text-muted">No hay consumos registrados.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+<div class="container-fluid py-4">
+  <div class="card shadow-sm border-0 rounded-3">
+    <div class="card-header bg-dark text-white rounded-top-3 py-3">
+      <h4 class="mb-0 fw-bold">
+        <i class="bi bi-door-open me-2"></i> Procesar Salida - Habitación {{ datosHospedaje()?.numero }}
+      </h4>
     </div>
 
-    <div class="col-md-5">
-      <div class="card shadow-sm border-0 bg-light">
-        <div class="card-body">
-          <h5 class="fw-bold mb-3">Resumen de Pago</h5>
+    <div class="card-body p-4" *ngIf="datosHospedaje() as h">
 
-          <div class="d-flex justify-content-between mb-2">
-            <span>Saldo Pendiente Hab.:</span>
-            <strong>S/. {{ datosHospedaje()?.cantidadRestante | number:'1.2-2' }}</strong>
-          </div>
-          <div class="d-flex justify-content-between mb-2">
-            <span>Consumos Pendientes:</span>
-            <strong>S/. {{ totalConsumosPendientes() | number:'1.2-2' }}</strong>
-          </div>
-
-          <hr>
-
-          <div class="mb-3">
-            <label class="form-label small fw-bold">Penalidad / Extra (S/.):</label>
-            <input type="number"
-                   class="form-control"
-                   [ngModel]="costoPenalidad()"
-                   (ngModelChange)="costoPenalidad.set($event)"
-                   name="penalidad">
-          </div>
-
-          <div class="alert alert-danger p-3 mt-3">
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="fw-bold">TOTAL A PAGAR:</span>
-              <h4 class="mb-0 fw-bold">S/. {{ totalNetoAPagar() | number:'1.2-2' }}</h4>
-            </div>
-          </div>
-
-          <button class="btn btn-danger w-100 py-2 fw-bold" (click)="finalizarCheckOut()">
-            <i class="bi bi-check-circle me-2"></i> Finalizar Check-Out
-          </button>
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <h5 class="fw-bold text-primary border-bottom pb-2">Resumen de la Habitación</h5>
+          <p class="mb-1"><strong>Número:</strong> {{ h.numero }}</p>
+          <p class="mb-1"><strong>Detalles:</strong> {{ h.detalleHabitacion }}</p>
+          <p class="mb-1"><strong>Categoría:</strong> {{ h.categoriaNombre }}</p>
+          <p class="mb-1"><strong>Piso:</strong> {{ h.pisoNombre }}</p>
+        </div>
+        <div class="col-md-6">
+          <h5 class="fw-bold text-primary border-bottom pb-2">Cliente</h5>
+          <p class="mb-1"><strong>Cliente:</strong> {{ h.nombre }} {{ h.apellido }}</p>
+          <p class="mb-1"><strong>Nro. Documento:</strong> {{ h.tipoDocumento }} - {{ h.documento }}</p>
+          <p class="mb-1"><strong>Correo:</strong> {{ h.correo }}</p>
+          <p class="mb-1"><strong>Fecha Entrada:</strong> {{ h.fechaEntrada }}</p>
         </div>
       </div>
+
+      <h5 class="fw-bold text-primary border-bottom pb-2 mb-3">Costo de Hospedaje</h5>
+      <div class="row bg-light p-3 rounded mb-4 align-items-center">
+        <div class="col-md-3"><strong>Costo Habitación:</strong> S/ {{ h.precioInicial | number:'1.2-2' }}</div>
+        <div class="col-md-3"><strong>Cantidad Adelantado:</strong> S/ {{ h.adelanto | number:'1.2-2' }}</div>
+        <div class="col-md-3"><strong>Cantidad Restante:</strong> S/ {{ h.precioRestante | number:'1.2-2' }}</div>
+        <div class="col-md-3">
+          <label class="form-label fw-bold mb-0">Costo por Penalidad:</label>
+          <input type="number" [(ngModel)]="costoPenalidad" class="form-control form-control-sm" placeholder="0.00">
+        </div>
+      </div>
+
+      <h5 class="fw-bold text-primary border-bottom pb-2 mb-3">Servicio a la Habitación</h5>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Producto</th>
+              <th>Cantidad</th>
+              <th>Precio Unitario</th>
+              <th>Estado Venta</th>
+              <th>Sub Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of servicios()">
+              <td>{{ s.producto }}</td>
+              <td>{{ s.cantidad }}</td>
+              <td>S/ {{ s.precioUnitario | number:'1.2-2' }}</td>
+              <td>
+                <span class="badge" [ngClass]="s.estadoVenta === 'PAGADO' ? 'bg-success' : 'bg-warning text-dark'">
+                  {{ s.estadoVenta }}
+                </span>
+              </td>
+              <td>S/ {{ s.subTotal | number:'1.2-2' }}</td>
+            </tr>
+            <tr *ngIf="servicios().length === 0">
+              <td colspan="5" class="text-center text-muted py-3">No hay consumos adicionales.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-4 p-3 bg-dark text-white rounded">
+        <h3 class="mb-0">Total Neto a Pagar: S/ {{ totalNetoAPagar() | number:'1.2-2' }}</h3>
+        <div>
+  <button class="btn btn-outline-secondary me-2" routerLink="/admin/recepcion" [disabled]="isLoading()">
+    Volver
+  </button>
+
+  <button class="btn btn-success px-4" (click)="finalizarCheckOut()" [disabled]="isLoading()">
+    <i class="bi" [ngClass]="isLoading() ? 'bi-hourglass-split' : 'bi-check-circle'"></i>
+    {{ isLoading() ? 'Procesando...' : 'Registrar Salida' }}
+  </button>
+</div>
+      </div>
+
     </div>
   </div>
 </div>

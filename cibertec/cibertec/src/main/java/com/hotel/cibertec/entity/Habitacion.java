@@ -6,11 +6,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder // <--- Nota sobre el uso de @Builder
 @Entity
 @Table(name = "HABITACION")
 public class Habitacion {
@@ -20,36 +21,48 @@ public class Habitacion {
     @Column(name = "idhabitacion")
     private Integer idHabitacion;
 
-    @Column(name = "numero")
+    @Column(name = "numero", nullable = false, unique = true)
     private String numero;
 
     @Column(name = "detalle")
     private String detalle;
 
-    @Column(name = "precio")
+    @Column(name = "precio", precision = 10, scale = 2)
     private BigDecimal precio;
 
-    @ManyToOne
-    @JoinColumn(name = "idestadohabitacion") // Relación correcta
+    @ManyToOne(fetch = FetchType.LAZY) // <--- Mejora de rendimiento
+    @JoinColumn(name = "idestadohabitacion")
     private EstadoHabitacion estadoHabitacion;
 
-    @ManyToOne
-    @JoinColumn(name = "idpiso") // Relación correcta
+    @ManyToOne(fetch = FetchType.LAZY) // <--- Mejora de rendimiento
+    @JoinColumn(name = "idpiso")
     private Piso piso;
 
-    @ManyToOne
-    @JoinColumn(name = "idcategoria") // Relación correcta
+    @ManyToOne(fetch = FetchType.LAZY) // <--- Mejora de rendimiento
+    @JoinColumn(name = "idcategoria")
     private Categoria categoria;
+
     @OneToMany(mappedBy = "habitacion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ImagenHabitacion> imagenes;
 
-    @Column(name = "estado")
-    private Boolean estado;
+    // Asignamos valor por defecto para evitar Nulos
+    @Column(name = "estado", nullable = false)
+    @Builder.Default
+    private Boolean estado = true;
 
     @Column(name = "fechacreacion")
-    private LocalDateTime fechaCreacion;
+    @Builder.Default
+    private LocalDateTime fechaCreacion = LocalDateTime.now();
 
     @JsonIgnore
     @OneToMany(mappedBy = "habitacion")
     private List<Recepcion> recepciones;
+
+    // Hook para establecer fecha antes de persistir
+    @PrePersist
+    protected void onCreate() {
+        if (this.fechaCreacion == null) {
+            this.fechaCreacion = LocalDateTime.now();
+        }
+    }
 }

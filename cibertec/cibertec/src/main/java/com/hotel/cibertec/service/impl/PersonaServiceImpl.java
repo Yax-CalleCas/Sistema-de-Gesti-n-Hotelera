@@ -1,4 +1,3 @@
-// com/hotel/cibertec/service/impl/PersonaServiceImpl.java
 package com.hotel.cibertec.service.impl;
 
 import com.hotel.cibertec.dto.PersonaDto;
@@ -12,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.CallableStatement;
-import java.sql.Connection;
 import java.sql.Types;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,14 +22,12 @@ public class PersonaServiceImpl implements PersonaService {
 
     private final PersonaRepository repository;
     private final JdbcTemplate jdbcTemplate;
-    private final BCryptPasswordEncoder passwordEncoder; // Dejamos que Spring lo inyecte desde SecurityConfig
+    private final BCryptPasswordEncoder passwordEncoder;
 
     @Override
     @Transactional(readOnly = true)
     public List<PersonaDto> listarTodos() {
-        return repository.findAllConTipo().stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+        return repository.findAllConTipo().stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Override
@@ -44,73 +40,60 @@ public class PersonaServiceImpl implements PersonaService {
     @Override
     @Transactional
     public PersonaDto guardar(PersonaDto dto) {
-        String claveEncriptada = passwordEncoder.encode(dto.getClave());
-        String sql = "CALL sp_RegistrarPersona(?, ?, ?, ?, ?, ?, ?, ?)";
+        String clave = passwordEncoder.encode(dto.getClave());
+        // Llamada a función de Postgres
+        String sql = "{? = call sp_RegistrarPersona(?, ?, ?, ?, ?, ?, ?)}";
 
-        return jdbcTemplate.execute((ConnectionCallback<PersonaDto>) (Connection con) -> {
+        Boolean exito = jdbcTemplate.execute((ConnectionCallback<Boolean>) con -> {
             try (CallableStatement cs = con.prepareCall(sql)) {
-                cs.setString(1, dto.getTipoDocumento());
-                cs.setString(2, dto.getDocumento());
-                cs.setString(3, dto.getNombre());
-                cs.setString(4, dto.getApellido());
-                cs.setString(5, dto.getCorreo());
-                cs.setString(6, claveEncriptada);
-                cs.setInt(7, dto.getIdTipoPersona());
-                cs.registerOutParameter(8, Types.BOOLEAN);
-
-                cs.execute();
-
-                if (!cs.getBoolean(8)) {
-                    throw new RuntimeException("Error: El documento ya existe.");
-                }
-
-                return dto;
-            }
-        });
-    }
-
-    @Override
-    @Transactional
-    public PersonaDto actualizar(Integer id, PersonaDto dto) {
-        // 1. Buscamos la entidad actual para verificar su contraseña preexistente
-        Persona personaExistente = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Registro no encontrado"));
-
-        String claveFinal;
-        // 2. CORRECCIÓN CRÍTICA: Si la clave viene vacía o es idéntica a la encriptada, mantenemos la de la BD
-        if (dto.getClave() == null || dto.getClave().trim().isEmpty() || dto.getClave().equals(personaExistente.getClave())) {
-            claveFinal = personaExistente.getClave();
-        } else {
-            claveFinal = passwordEncoder.encode(dto.getClave());
-        }
-
-        String sql = "CALL sp_ModificarPersona(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        boolean exito = jdbcTemplate.execute((ConnectionCallback<Boolean>) (Connection con) -> {
-            try (CallableStatement cs = con.prepareCall(sql)) {
-                cs.setInt(1, id);
+                cs.registerOutParameter(1, Types.BOOLEAN);
                 cs.setString(2, dto.getTipoDocumento());
                 cs.setString(3, dto.getDocumento());
                 cs.setString(4, dto.getNombre());
                 cs.setString(5, dto.getApellido());
                 cs.setString(6, dto.getCorreo());
-                cs.setString(7, claveFinal); // Enviamos la clave procesada de manera segura
+                cs.setString(7, clave);
                 cs.setInt(8, dto.getIdTipoPersona());
-                cs.setBoolean(9, dto.getEstado());
-                cs.registerOutParameter(10, Types.BOOLEAN);
-
                 cs.execute();
-                return cs.getBoolean(10); // Retornamos el resultado del SP
+                return cs.getBoolean(1);
             }
         });
 
-        if (!exito) {
-            throw new RuntimeException("Error: El documento ingresado ya está registrado en otra persona.");
-        }
-
-        return dto;
+        if (!Boolean.TRUE.equals(exito)) throw new RuntimeException("Error: El documento o correo ya existe.");
+        return toDto(repository.findByCorreo(dto.getCorreo()).orElseThrow());
     }
 
+    @Override
+    @Transactional
+    public PersonaDto actualizar(Integer id, PersonaDto dto) {
+        Persona p = repository.findById(id).orElseThrow(() -> new RuntimeException("Registro no encontrado"));
+
+        String claveFinal = (dto.getClave() == null || dto.getClave().isEmpty() || dto.getClave().equals("**********"))
+                ? p.getClave() : passwordEncoder.encode(dto.getClave());
+
+        String sql = "{? = call sp_ModificarPersona(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}";
+
+        Boolean exito = jdbcTemplate.execute((ConnectionCallback<Boolean>) con -> {
+            try (CallableStatement cs = con.prepareCall(sql)) {
+                cs.registerOutParameter(1, Types.BOOLEAN); // Retorno de la función
+                cs.setInt(2, id);
+                cs.setString(3, dto.getTipoDocumento());
+                cs.setString(4, dto.getDocumento());
+                cs.setString(5, dto.getNombre());
+                cs.setString(6, dto.getApellido());
+                cs.setString(7, dto.getCorreo());
+                cs.setString(8, claveFinal);
+                cs.setInt(9, dto.getIdTipoPersona());
+                cs.setBoolean(10, dto.getEstado());
+                cs.setString(11, dto.getFotoUrl() != null ? dto.getFotoUrl() : "");
+                cs.execute();
+                return cs.getBoolean(1);
+            }
+        });
+
+        if (!Boolean.TRUE.equals(exito)) throw new RuntimeException("Error al actualizar en BD.");
+        return toDto(repository.findById(id).orElseThrow());
+    }
     @Override
     @Transactional
     public void eliminar(Integer id) {
@@ -127,10 +110,10 @@ public class PersonaServiceImpl implements PersonaService {
                 .nombre(e.getNombre())
                 .apellido(e.getApellido())
                 .correo(e.getCorreo())
-                .clave(e.getClave())
                 .idTipoPersona(e.getTipoPersona() != null ? e.getTipoPersona().getIdTipoPersona() : null)
                 .estado(e.getEstado())
-                .fechaCreacion(e.getFechaCreacion())
+                .fotoUrl(e.getFotoUrl())
+                .fechaCreacion(e.getFechaCreacion() != null ? e.getFechaCreacion() : java.time.LocalDateTime.now())
                 .build();
     }
 }

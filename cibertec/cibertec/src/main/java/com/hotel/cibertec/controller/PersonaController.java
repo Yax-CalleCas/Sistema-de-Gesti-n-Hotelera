@@ -17,47 +17,27 @@ public class PersonaController {
 
     @GetMapping("/listar")
     public ResponseEntity<ApiResponse<?>> listar() {
-        try {
-            return ResponseEntity.ok(ApiResponse.success(service.listarTodos()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResponse.success(service.listarTodos()));
     }
 
     @GetMapping("/buscar/{id}")
     public ResponseEntity<ApiResponse<?>> buscar(@PathVariable Integer id) {
-        try {
-            return ResponseEntity.ok(ApiResponse.success(service.buscarPorId(id)));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResponse.success(service.buscarPorId(id)));
     }
 
     @PostMapping("/registrar")
     public ResponseEntity<ApiResponse<?>> registrar(@Valid @RequestBody PersonaDto dto) {
-        try {
-            return ResponseEntity.ok(ApiResponse.success(service.guardar(dto)));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResponse.success(service.guardar(dto)));
     }
 
     @PutMapping("/actualizar/{id}")
     public ResponseEntity<ApiResponse<?>> actualizar(@PathVariable Integer id, @Valid @RequestBody PersonaDto dto) {
-        try {
-            return ResponseEntity.ok(ApiResponse.success(service.actualizar(id, dto)));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResponse.success(service.actualizar(id, dto)));
     }
 
     @DeleteMapping("/eliminar/{id}")
     public ResponseEntity<ApiResponse<?>> eliminar(@PathVariable Integer id) {
-        try {
-            service.eliminar(id);
-            return ResponseEntity.ok(ApiResponse.success(null));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        service.eliminar(id);
+        return ResponseEntity.ok(ApiResponse.success("Persona eliminada correctamente"));
     }
 }

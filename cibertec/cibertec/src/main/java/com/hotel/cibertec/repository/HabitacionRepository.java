@@ -15,9 +15,21 @@ import java.util.Optional;
 @Repository
 public interface HabitacionRepository extends JpaRepository<Habitacion, Integer> {
 
-    // Usar Optional es mejor práctica que retornar null si no existe
     Optional<Habitacion> findByNumero(String numero);
 
-    Optional<Habitacion> findByNumeroAndEstadoTrue(String numero);
+    @Query("SELECT h FROM Habitacion h " +
+            "LEFT JOIN FETCH h.estadoHabitacion " +
+            "LEFT JOIN FETCH h.piso " +
+            "LEFT JOIN FETCH h.categoria " +
+            "LEFT JOIN FETCH h.imagenes")
+    List<Habitacion> findAllWithDetails();
 
+    // para el ID
+    @Query("SELECT h FROM Habitacion h " +
+            "LEFT JOIN FETCH h.estadoHabitacion " +
+            "LEFT JOIN FETCH h.piso " +
+            "LEFT JOIN FETCH h.categoria " +
+            "LEFT JOIN FETCH h.imagenes " +
+            "WHERE h.idHabitacion = :id")
+    Optional<Habitacion> findByIdWithDetails(@Param("id") Integer id);
 }

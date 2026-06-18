@@ -1,7 +1,6 @@
 package com.hotel.cibertec.dto;
 
 import lombok.*;
-
 import java.math.BigDecimal;
 
 @Getter
@@ -11,7 +10,7 @@ import java.math.BigDecimal;
 @Builder
 public class ReporteProductoDto {
     private Integer idProducto;
-    private String nombre;
+    private String nombreProducto;
     private Integer cantidad;
     private BigDecimal precio;
     private Boolean estado;

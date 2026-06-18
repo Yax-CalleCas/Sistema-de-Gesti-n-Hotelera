@@ -29,21 +29,25 @@ public class RecepcionDto {
     private String nombre;
     private String apellido;
     private String correo;
+    @Builder.Default
+    private BigDecimal precioInicial = BigDecimal.ZERO;
 
-    // Fechas (LocalDate elimina el error de parseo de formato de hora)
+    @Builder.Default
+    private BigDecimal adelanto = BigDecimal.ZERO;
+
+    @Builder.Default
+    private BigDecimal precioRestante = BigDecimal.ZERO;
+
+    @Builder.Default
+    private BigDecimal totalPagado = BigDecimal.ZERO;
+
+    @Builder.Default
+    private BigDecimal costoPenalidad = BigDecimal.ZERO;
     private LocalDate fechaEntrada;
     private LocalDate fechaSalida;
-
-    // Campo para auditoría (se mantiene LocalDateTime si fuera necesario)
     private LocalDateTime fechaSalidaConfirmacion;
 
     // Finanzas
-    private BigDecimal precioInicial;
-    private BigDecimal adelanto;
-    private BigDecimal precioRestante;
-    private BigDecimal totalPagado;
-    private BigDecimal costoPenalidad;
-
     private String observacion;
     private Boolean estado;
 }

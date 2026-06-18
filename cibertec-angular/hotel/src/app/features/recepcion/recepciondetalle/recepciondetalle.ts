@@ -2,14 +2,18 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 
+// Servicios y Modelos
 import { HabitacionService } from '../../../core/services/habitacion.service';
 import { RecepcionService } from '../../../core/services/recepcion.service';
 import { PersonaService } from '../../../core/services/persona.service';
-import { VentaService } from '../../../core/services/venta.service';
+import { CategoriaService } from '../../../core/services/categoria.service';
+import { PisoService } from '../../../core/services/piso.service';
 import { Habitacion } from '../../../core/models/Habitacion';
 import { Persona } from '../../../core/models/persona.model';
+import { Recepcion } from '../../../core/models/recepcion.model';
 
 @Component({
   selector: 'app-recepciondetalle',
@@ -18,30 +22,31 @@ import { Persona } from '../../../core/models/persona.model';
   templateUrl: './recepciondetalle.html'
 })
 export class RecepcionDetalleComponent implements OnInit {
+  // Inyección de dependencias
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly habService = inject(HabitacionService);
   private readonly recService = inject(RecepcionService);
   private readonly personaService = inject(PersonaService);
-  private readonly ventaService = inject(VentaService);
+  private readonly catService = inject(CategoriaService);
+  private readonly pisoService = inject(PisoService);
 
-  // Signals para el estado
+  // Estados reactivos (Signals)
   habitacion = signal<Habitacion | null>(null);
-  recepcion = signal<any>(this.inicializarModelo(0));
+  recepcion = signal<Recepcion>(this.inicializarModelo());
   listaPersonas = signal<Persona[]>([]);
-  listaVentasCliente = signal<any[]>([]);
+paginaActual = signal<number>(0);
+itemsPorPagina = 5;
+  // Mapas para catálogos descriptivos
+  catMap = signal<Map<number, string>>(new Map());
+  pisoMap = signal<Map<number, string>>(new Map());
+esOcupada = computed(() => Number(this.habitacion()?.idEstadoHabitacion) === 2);
+  // Estado UI
+  noches = signal<number>(1);
   dniBusqueda = signal('');
 
-  isLoading = signal(false);
-  isLoadingVentas = signal(false);
-  errorVentas = signal<any | null>(null);
-
-  // Computados para rendimiento (se actualizan solos)
-  esOcupada = computed(() => Number(this.habitacion()?.idEstadoHabitacion) === 2);
-  nombreCategoria = computed(() => ({ 1: 'Simple', 2: 'Doble', 3: 'Matrimonial', 4: 'Suite' }[Number(this.habitacion()?.idCategoria)] ?? 'Simple'));
-  nombrePiso = computed(() => ({ 1: 'PRIMERO', 2: 'SEGUNDO', 3: 'TERCERO', 4: 'CUARTO' }[Number(this.habitacion()?.idPiso)] ?? 'PRIMERO'));
-
   ngOnInit(): void {
+    this.cargarCatalogos();
     this.cargarClientes();
     this.route.paramMap.subscribe(params => {
       const id = Number(params.get('id'));
@@ -49,96 +54,191 @@ export class RecepcionDetalleComponent implements OnInit {
     });
   }
 
+  private inicializarModelo(): Recepcion {
+    const hoy = new Date().toISOString().split('T')[0];
+    return {
+      fechaEntrada: hoy,
+      fechaSalida: hoy,
+      precioInicial: 0,
+      adelanto: 0,
+      precioRestante: 0,
+      totalPagado: 0,
+      costoPenalidad: 0
 
 
-  cargarDatos(idHabitacion: number): void {
-    this.isLoading.set(true);
-    this.recepcion.set(this.inicializarModelo(idHabitacion));
-
-    this.habService.buscarPorId(idHabitacion).subscribe(res => {
-      this.habitacion.set(res.data);
-      if (res.data && this.esOcupada()) this.obtenerHospedajeActivo(idHabitacion);
-      this.isLoading.set(false);
-    });
+    };
   }
+
+
+
+  personasPaginadas = computed(() => {
+  // Filtro extra de seguridad: solo los que tengan estado true
+  const activos = this.listaPersonas().filter(p => p.estado === true);
+
+  const inicio = this.paginaActual() * this.itemsPorPagina;
+  return activos.slice(inicio, inicio + this.itemsPorPagina);
+});
+
+totalPaginas = computed(() => {
+  const activos = this.listaPersonas().filter(p => p.estado === true);
+  return Math.ceil(activos.length / this.itemsPorPagina);
+});
+
+
+// Métodos de navegación
+cambiarPagina(nuevaPagina: number) {
+  this.paginaActual.set(nuevaPagina);
+}
+
 
   private obtenerHospedajeActivo(idHabitacion: number): void {
-    this.recService.buscarActivaPorHabitacion(idHabitacion).subscribe(res => {
-      if (res?.data) {
-        this.recepcion.set({ ...res.data });
-        if (res.data.idRecepcion) this.cargarVentasConsumo(res.data.idRecepcion);
+  this.recService.buscarActivaPorHabitacion(idHabitacion).subscribe({
+    next: (res: any) => {
+      // Si el backend ahora devuelve una lista, tomamos el primer elemento [0]
+      // Si res.data es un array, tomamos el primero. Si es un objeto, lo usamos directo.
+      const data = Array.isArray(res.data) ? res.data[0] : res.data;
+
+      if (data) {
+        this.recepcion.set(data);
+        this.calcularTotal(); // Recalculamos al cargar los datos
       }
-    });
-  }
-
-  cargarVentasConsumo(idRecepcion: number): void {
-    this.isLoadingVentas.set(true);
-    this.ventaService.buscarPorRecepcion(idRecepcion).subscribe({
-      next: (res) => {
-        const listaVentas = res?.data ?? [];
-        const servicios = listaVentas.flatMap((v: any) =>
-          (v.detalles ?? []).map((d: any) => ({
-            producto: d.nombreProducto ?? 'Producto',
-            cantidad: d.cantidad,
-            subTotal: d.cantidad * (d.precioUnitario ?? d.precio)
-          }))
-        );
-        this.listaVentasCliente.set(servicios);
-        this.isLoadingVentas.set(false);
-      },
-      error: () => { this.isLoadingVentas.set(false); this.errorVentas.set('Error cargando consumos'); }
-    });
-  }
-
+    },
+    error: (err) => {
+      console.error("Error al obtener hospedaje activo:", err);
+      // Aquí puedes dejar que el usuario registre una nueva,
+      // no es necesario lanzar un error bloqueante si no hay recepción activa.
+    }
+  });
+}
+  // --- Métodos para el Modal y UI ---
   abrirModalClientes(): void {
     const modalElement = document.getElementById('modalClientes');
-    if (modalElement) new (window as any).bootstrap.Modal(modalElement).show();
-  }
-
-  buscarCliente(): void {
-    const cliente = this.listaPersonas().find(p => p.documento === this.dniBusqueda());
-    if (cliente) {
-      this.seleccionarPersona(cliente);
-      const modal = (window as any).bootstrap.Modal.getInstance(document.getElementById('modalClientes'));
-      modal?.hide();
-    } else {
-      Swal.fire('Atención', 'Cliente no encontrado', 'warning');
+    if (modalElement) {
+      // Necesitas tener Bootstrap cargado en tu proyecto
+      (window as any).bootstrap.Modal.getOrCreateInstance(modalElement).show();
     }
   }
 
-seleccionarPersona(c: Persona): void {
-  this.recepcion.update(r => ({
-    ...r,
-    idCliente: c.idPersona,
-    nombre: c.nombre,
-    apellido: c.apellido,
-    documento: c.documento,
-    correo: c.correo,
-    tipoDocumento: c.tipoDocumento // Asegúrate de incluir esto
-  }));
-}
-  guardar(): void {
-    if (this.esOcupada()) return;
-    this.recService.registrar(this.recepcion()).subscribe({
-      next: () => {
-        Swal.fire('Éxito', 'Registrado correctamente', 'success');
-        this.router.navigate(['/admin/recepcion']);
-      },
-      error: (err) => Swal.fire('Error', err.error?.message ?? 'Error al registrar', 'error')
+
+
+
+  // --- Ajuste en cargarDatos para detectar ocupación ---
+  cargarDatos(idHabitacion: number): void {
+    this.habService.buscarPorId(idHabitacion).subscribe({
+      next: (res) => {
+        if (!res.data) return;
+        this.habitacion.set(res.data);
+
+        // Si está ocupada (idEstado 2), buscamos el detalle de la recepción actual
+        if (this.esOcupada()) {
+          this.obtenerHospedajeActivo(idHabitacion);
+        } else {
+          // Si está libre, inicializamos con precio base
+          this.recepcion.update(r => ({
+            ...r,
+            idHabitacion,
+            precioInicial: res.data.precio
+          }));
+        }
+        this.calcularTotal();
+      }
+    });
+  }
+  // Carga de datos iniciales
+  private cargarCatalogos(): void {
+    forkJoin({
+      cats: this.catService.listar(),
+      pisos: this.pisoService.listar()
+    }).subscribe(({ cats, pisos }) => {
+      this.catMap.set(new Map((cats.data ?? []).map(c => [Number(c.idCategoria), c.descripcion])));
+      this.pisoMap.set(new Map((pisos.data ?? []).map(p => [Number(p.idPiso), p.descripcion])));
     });
   }
 
-  // En tu .ts, verifica que al cargar los clientes, los guardes así:
 private cargarClientes(): void {
-  this.personaService.listar().subscribe(res => {
-    if (res?.data) {
-      // ESTO ES LO QUE LLENA EL MODAL
-      this.listaPersonas.set(res.data.filter(p => Number(p.idTipoPersona) === 3));
+  this.personaService.listar().subscribe({
+    next: (res) => {
+      // Filtramos por ID de tipo 3 (Clientes) Y estado activo (true)
+      const clientesActivos = res?.data?.filter((p: Persona) =>
+        Number(p.idTipoPersona) === 3 && p.estado === true
+      ) || [];
+
+      this.listaPersonas.set(clientesActivos);
+    },
+    error: (err) => {
+      console.error("Error al cargar clientes:", err);
+      Swal.fire('Error', 'No se pudieron cargar los clientes activos', 'error');
     }
   });
 }
 
-  private inicializarModelo(idHab: number) {
-    return { idHabitacion: idHab, precioInicial: 0, fechaEntrada: new Date().toISOString().split('T')[0] };
+  // Lógica de cálculo reactivo
+ calcularTotal(): void {
+  const hab = this.habitacion();
+  if (!hab) return;
+
+  const entrada = new Date(this.recepcion().fechaEntrada!);
+  const salida = new Date(this.recepcion().fechaSalida!);
+
+  // Calcular diferencia en milisegundos y convertir a días
+  const diffTime = Math.abs(salida.getTime() - entrada.getTime());
+  const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+  // Actualizamos la señal de noches
+  this.noches.set(diffDays);
+
+  this.recepcion.update(r => ({
+    ...r,
+    precioInicial: (hab.precio || 0) * diffDays,
+    precioRestante: ((hab.precio || 0) * diffDays) - (r.adelanto || 0)
+  }));
+}
+
+  // Acciones de registro
+  guardar(): void {
+    const data = this.recepcion();
+    if (!data.idCliente) {
+      Swal.fire('Error', 'Seleccione un cliente primero', 'error');
+      return;
+    }
+
+    this.recService.registrar(data).subscribe({
+      next: () => {
+        Swal.fire('Éxito', 'Reservación registrada correctamente', 'success');
+        this.router.navigate(['/admin/recepcion']);
+      },
+      error: (err) => Swal.fire('Error', err.error?.message ?? 'Error al guardar', 'error')
+    });
   }
+
+  // Helpers de búsqueda
+  seleccionarPersona(c: Persona): void {
+    this.recepcion.update(r => ({
+      ...r,
+      idCliente: c.idPersona,
+      nombre: c.nombre,
+      apellido: c.apellido,
+      documento: c.documento,
+      tipoDocumento: c.tipoDocumento,
+      correo: c.correo
+    }));
+  }
+
+
+
+  buscarCliente(): void {
+  const busqueda = this.dniBusqueda().trim();
+  const cliente = this.listaPersonas().find(p => p.documento?.toString().trim() === busqueda);
+
+  if (cliente) {
+    this.seleccionarPersona(cliente);
+    // Swal opcional, quizás mejor quitarlo si el modal ya muestra la selección
+  } else {
+    Swal.fire('Atención', 'Cliente no encontrado en la lista de clientes', 'warning');
+  }
+}
+
+  // Getters para la vista
+  getCatNombre(id: number) { return this.catMap().get(Number(id)) ?? 'Cargando...'; }
+  getPisoNombre(id: number) { return this.pisoMap().get(Number(id)) ?? 'Cargando...'; }
 }

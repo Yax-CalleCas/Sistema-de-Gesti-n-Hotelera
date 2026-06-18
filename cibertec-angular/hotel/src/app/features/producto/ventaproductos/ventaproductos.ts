@@ -7,6 +7,22 @@ import { RecepcionService } from '../../../core/services/recepcion.service';
 import { ProductoService } from '../../../core/services/producto.service';
 import { VentaService } from '../../../core/services/venta.service';
 
+// Interfaces para tipado fuerte
+interface Producto {
+  idProducto: number;
+  nombre: string;
+  precio: number;
+  cantidad: number;
+}
+
+interface ItemCarrito {
+  idProducto: number;
+  nombre: string;
+  precio: number;
+  cantidad: number;
+  subTotal: number;
+}
+
 @Component({
   selector: 'app-ventaproductos',
   standalone: true,
@@ -21,35 +37,46 @@ export class Ventaproductos implements OnInit {
   private ventaService = inject(VentaService);
   private cdr = inject(ChangeDetectorRef);
 
+  // Tipado explícito en lugar de any
   datosRecepcion: any = null;
-  listaProductos: any[] = [];
-  carrito: any[] = [];
-  errorMessage: string | undefined | null;
+  listaProductos: Producto[] = [];
+  carrito: ItemCarrito[] = [];
+
   productoSeleccionadoId: number = 0;
   cantidad: number = 1;
   isProcessing: boolean = false;
-
-  // VARIABLE AGREGADA: Controla si la venta se cancela de inmediato o se va a la cuenta
-  estadoVenta: string = 'PAGADO';
+  estadoVenta: 'PENDIENTE' | 'PAGADO' = 'PENDIENTE';
 
   ngOnInit(): void {
     const idHab = this.route.snapshot.paramMap.get('id');
     if (idHab) this.cargarTodo(Number(idHab));
   }
 
-  cargarTodo(idHabitacion: number) {
-    this.recepcionService.buscarActivaPorHabitacion(idHabitacion).subscribe(res => {
-      this.datosRecepcion = res?.data || res;
-      this.cdr.detectChanges();
+  cargarTodo(idHabitacion: number): void {
+    this.recepcionService.buscarActivaPorHabitacion(idHabitacion).subscribe({
+      next: (res: any) => {
+        this.datosRecepcion = res?.data || res;
+        this.cdr.detectChanges();
+      }
     });
 
-    this.productoService.listar().subscribe(res => {
-      this.listaProductos = res?.data || [];
-      this.cdr.detectChanges();
+    this.productoService.listar().subscribe({
+      next: (res: any) => {
+        this.listaProductos = res?.data || [];
+        this.cdr.detectChanges();
+      }
     });
   }
 
-  agregarAlCarrito() {
+  // Método explícito para el template
+obtenerPrecioActual(): number {
+  const prod = this.listaProductos.find(p => p.idProducto == this.productoSeleccionadoId);
+  return prod ? prod.precio : 0;
+}
+
+  agregarAlCarrito(): void {
+    if (this.productoSeleccionadoId === 0) return;
+
     const prod = this.listaProductos.find(p => p.idProducto == this.productoSeleccionadoId);
     if (!prod) return;
 
@@ -68,7 +95,6 @@ export class Ventaproductos implements OnInit {
       });
     }
 
-    // Limpiar selección después de agregar para evitar duplicaciones accidentales
     this.productoSeleccionadoId = 0;
     this.cantidad = 1;
     this.cdr.detectChanges();
@@ -78,23 +104,15 @@ export class Ventaproductos implements OnInit {
     return this.carrito.reduce((acc, item) => acc + item.subTotal, 0);
   }
 
-  registrarVenta() {
-    if (!this.carrito || this.carrito.length === 0) {
-      this.errorMessage = "El carrito está vacío.";
-      Swal.fire('Advertencia', this.errorMessage, 'warning');
+  registrarVenta(): void {
+    if (this.carrito.length === 0) {
+      Swal.fire('Advertencia', 'El carrito está vacío.', 'warning');
       return;
     }
 
-    if (!this.datosRecepcion || !this.datosRecepcion.idRecepcion) {
-      this.errorMessage = "No se encontraron datos válidos de la recepción activa.";
-      Swal.fire('Error', this.errorMessage, 'error');
-      return;
-    }
-
-    // Activamos el estado de carga
     this.isProcessing = true;
 
-    // MODIFICADO: Ahora el campo 'estado' recibe dinámicamente el valor del select de tu HTML (PAGADO o DEBE)
+    // Estructura adaptada para el nuevo Backend (Function wrapper)
     const ventaData = {
       idRecepcion: this.datosRecepcion.idRecepcion,
       estado: this.estadoVenta,
@@ -107,34 +125,16 @@ export class Ventaproductos implements OnInit {
 
     this.ventaService.guardar(ventaData).subscribe({
       next: () => {
-        this.isProcessing = false; // Desbloqueamos el botón
-        Swal.fire('Éxito', 'Venta registrada correctamente', 'success');
-        this.router.navigate(['/admin/recepcion']);
+        this.isProcessing = false;
+        Swal.fire('Éxito', `Venta registrada como ${this.estadoVenta}`, 'success')
+          .then(() => this.router.navigate(['/admin/recepcion']));
       },
       error: (err) => {
-        this.isProcessing = false; // Desbloqueamos el botón ante error
-        console.error('Error:', err);
-        this.errorMessage = err.error?.message || 'Error al procesar la venta en el servidor.';
-
-        Swal.fire({
-          icon: 'error',
-          title: 'Error al registrar',
-          text: this.errorMessage!,
-          footer: 'Verifique stock disponible en el inventario'
-        });
+        this.isProcessing = false;
+        const msg = err.error?.message || 'Error al procesar la venta.';
+        Swal.fire('Error', msg, 'error');
         this.cdr.detectChanges();
       }
     });
   }
-  obtenerPrecioSeleccionado(): number {
-  if (!this.productoSeleccionadoId || this.productoSeleccionadoId == 0) {
-    return 0;
-  }
-  const prod = this.listaProductos.find(p => p.idProducto == this.productoSeleccionadoId);
-  return prod ? prod.precio : 0;
-}
-  get precioProductoSeleccionado(): number {
-  const prod = this.listaProductos.find(p => p.idProducto == this.productoSeleccionadoId);
-  return prod ? prod.precio : 0;
-}
 }

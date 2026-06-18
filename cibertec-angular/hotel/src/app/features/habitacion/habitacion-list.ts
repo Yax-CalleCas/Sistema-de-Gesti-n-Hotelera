@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -9,6 +9,11 @@ import { EstadoHabitacionService } from '../../core/services/EstadoHabitacionSer
 import { CategoriaService } from '../../core/services/categoria.service';
 import { PisoService } from '../../core/services/piso.service';
 import { Habitacion } from '../../core/models/Habitacion';
+
+// Definición constante fuera de la clase para optimizar rendimiento
+const ESTADO_BADGE_MAP: Record<number, string> = {
+  1: 'bg-success', 2: 'bg-danger', 3: 'bg-warning text-dark'
+};
 
 @Component({
   selector: 'app-habitacion-list',
@@ -23,7 +28,10 @@ export class HabitacionListComponent implements OnInit {
   private readonly categoriaService = inject(CategoriaService);
   private readonly pisoService = inject(PisoService);
 
-  // Estados como Signals
+  // Referencia al modal para evitar acceso global a window
+  @ViewChild('modalHab') modalElement!: ElementRef;
+
+  // Estados reactivos
   habitaciones = signal<any[]>([]);
   filtroTexto = signal('');
   isLoading = signal(false);
@@ -33,15 +41,17 @@ export class HabitacionListComponent implements OnInit {
   categorias = signal<any[]>([]);
   pisos = signal<any[]>([]);
   estados = signal<any[]>([]);
+paginaActual = signal(1);
+readonly registrosPorPagina = 10;
 
-  // Mapas para búsqueda instantánea O(1)
+
   private estadosMap = new Map<number, string>();
   private categoriasMap = new Map<number, string>();
   private pisosMap = new Map<number, string>();
 
   habitacion = signal<Habitacion>(this.nuevoModelo());
 
-  // Filtrado reactivo optimizado
+  // Filtrado reactivo
   habitacionesFiltradas = computed(() => {
     const filtro = this.filtroTexto().toLowerCase().trim();
     return this.habitaciones().filter(h =>
@@ -61,22 +71,27 @@ export class HabitacionListComponent implements OnInit {
       p: this.pisoService.listar()
     }).subscribe({
       next: ({ h, e, c, p }) => {
-        // Actualizar catálogos
         this.estados.set(e.data || []);
         this.categorias.set((c.data || []).filter(x => x.estado));
         this.pisos.set((p.data || []).filter(x => x.estado));
 
-        // Cargar mapas para mapeo rápido
-        this.estados().forEach(x => this.estadosMap.set(x.idEstadoHabitacion!, x.descripcion!));
-        this.categorias().forEach(x => this.categoriasMap.set(x.idCategoria!, x.descripcion!));
-        this.pisos().forEach(x => this.pisosMap.set(x.idPiso!, x.descripcion!));
+        // Actualización eficiente de mapas
+        this.estadosMap = new Map(this.estados().map(x => [x.idEstadoHabitacion, x.descripcion]));
+        this.categoriasMap = new Map(this.categorias().map(x => [x.idCategoria, x.descripcion]));
+        this.pisosMap = new Map(this.pisos().map(x => [x.idPiso, x.descripcion]));
 
-        this.habitaciones.set((h.data || []).map(item => ({
-          ...item,
-          categoriaDesc: this.categoriasMap.get(item.idCategoria) || 'N/A',
-          pisoDesc: this.pisosMap.get(item.idPiso) || 'N/A',
-          estadoHabitacionDesc: this.estadosMap.get(item.idEstadoHabitacion) || 'Desconocido'
-        })));
+        this.habitaciones.set(
+  (h.data || [])
+    .map(item => ({
+      ...item,
+      categoriaDesc: this.categoriasMap.get(item.idCategoria) || 'N/A',
+      pisoDesc: this.pisosMap.get(item.idPiso) || 'N/A',
+      estadoHabitacionDesc:
+        this.estadosMap.get(item.idEstadoHabitacion) || 'Desconocido'
+    }))
+    .sort((a, b) => (b.idHabitacion || 0) - (a.idHabitacion || 0))
+);
+
         this.isLoading.set(false);
       },
       error: () => {
@@ -88,8 +103,7 @@ export class HabitacionListComponent implements OnInit {
 
   abrir(h?: Habitacion): void {
     this.habitacion.set(h ? { ...h, urlsImagenes: [...(h.urlsImagenes || [])] } : this.nuevoModelo());
-    const modalEl = document.getElementById('modalHab');
-    if (modalEl) (window as any).bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    this.toggleModal(true);
   }
 
   guardar(): void {
@@ -100,7 +114,10 @@ export class HabitacionListComponent implements OnInit {
         this.cargarDatos();
         this.cerrarModal();
       },
-      error: () => Swal.fire('Error', 'No se pudo guardar', 'error'),
+      error: () => {
+        Swal.fire('Error', 'No se pudo guardar la información', 'error');
+        this.isProcessing.set(false);
+      },
       complete: () => this.isProcessing.set(false)
     });
   }
@@ -109,10 +126,12 @@ export class HabitacionListComponent implements OnInit {
     if (!id) return;
     Swal.fire({
       title: '¿Confirmar baja?',
+      text: 'Esta acción no se puede deshacer',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
-      confirmButtonText: 'Sí, dar de baja'
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, eliminar'
     }).then((res) => {
       if (res.isConfirmed) {
         this.service.eliminar(id).subscribe(() => this.cargarDatos());
@@ -134,19 +153,59 @@ export class HabitacionListComponent implements OnInit {
     });
   }
 
-  trackByHabitacion = (index: number, h: any) => h.idHabitacion;
 
   getEstadoBadgeClass(id: number): string {
-    const dict: Record<number, string> = { 1: 'bg-success', 2: 'bg-danger', 3: 'bg-warning text-dark' };
-    return dict[id] || 'bg-secondary';
+    return ESTADO_BADGE_MAP[id] || 'bg-secondary';
   }
 
-  cerrarModal(): void {
+  // Métodos privados de control
+  private toggleModal(show: boolean): void {
     const modalEl = document.getElementById('modalHab');
-    if (modalEl) (window as any).bootstrap.Modal.getInstance(modalEl)?.hide();
+    if (modalEl) {
+      const modal = (window as any).bootstrap.Modal.getOrCreateInstance(modalEl);
+      show ? modal.show() : modal.hide();
+    }
   }
 
-  nuevoModelo(): Habitacion {
-    return { numero: '', detalle: '', precio: 0, idEstadoHabitacion: 1, idPiso: 1, idCategoria: 1, estado: true, urlsImagenes: [] };
+  cerrarModal(): void { this.toggleModal(false); }
+
+  trackByHabitacion = (index: number, h: any) => h.idHabitacion;
+
+  totalPaginas = computed(() =>
+  Math.ceil(this.habitacionesFiltradas().length / this.registrosPorPagina)
+);
+
+habitacionesPaginadas = computed(() => {
+  const inicio =
+    (this.paginaActual() - 1) * this.registrosPorPagina;
+
+  return this.habitacionesFiltradas().slice(
+    inicio,
+    inicio + this.registrosPorPagina
+  );
+});
+
+cambiarPagina(pagina: number): void {
+  if (
+    pagina < 1 ||
+    pagina > this.totalPaginas() ||
+    pagina === this.paginaActual()
+  ) {
+    return;
+  }
+
+  this.paginaActual.set(pagina);
+}
+  private nuevoModelo(): Habitacion {
+    return {
+      numero: '',
+      detalle: '',
+      precio: 0,
+      idEstadoHabitacion: 1,
+      idPiso: 1,
+      idCategoria: 1,
+      estado: true,
+      urlsImagenes: []
+    };
   }
 }

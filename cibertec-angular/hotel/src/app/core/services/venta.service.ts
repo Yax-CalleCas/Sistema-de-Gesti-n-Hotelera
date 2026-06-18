@@ -28,10 +28,9 @@ export class VentaService {
     return this.http.get<ApiResponse<Venta>>(`${this.baseUrl}/${id}`);
   }
 
-  // Buscar ventas asociadas a una recepción específica
-  buscarPorRecepcion(idRecepcion: number): Observable<ApiResponse<Venta[]>> {
-    return this.http.get<ApiResponse<Venta[]>>(`${this.baseUrl}/recepcion/${idRecepcion}`);
-  }
+buscarPorRecepcion(idRecepcion: number): Observable<ApiResponse<Venta[]>> {
+  return this.http.get<ApiResponse<Venta[]>>(`${this.baseUrl}/recepcion/${idRecepcion}`);
+}
 
   // Registrar una nueva venta (Carrito de consumos)
   guardar(venta: any): Observable<ApiResponse<Venta>> {

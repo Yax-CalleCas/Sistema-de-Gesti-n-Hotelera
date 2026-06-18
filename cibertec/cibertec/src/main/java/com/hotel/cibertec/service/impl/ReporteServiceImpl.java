@@ -1,7 +1,6 @@
 package com.hotel.cibertec.service.impl;
 
 import com.hotel.cibertec.dto.*;
-
 import com.hotel.cibertec.repository.ReporteRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -40,7 +39,7 @@ public class ReporteServiceImpl implements ReporteRepository {
     @Override
     @SuppressWarnings("unchecked")
     public List<ReporteVentaDto> getVentas(LocalDateTime inicio, LocalDateTime fin) {
-        List<Object[]> results = entityManager.createNativeQuery("SELECT * FROM fn_Reporte_Ventas(:inicio, :fin)")
+        List<Object[]> results = entityManager.createNativeQuery("SELECT * FROM fn_Reporte_Ventas_Validadas(:inicio, :fin)")
                 .setParameter("inicio", Timestamp.valueOf(inicio))
                 .setParameter("fin", Timestamp.valueOf(fin))
                 .getResultList();
@@ -55,7 +54,7 @@ public class ReporteServiceImpl implements ReporteRepository {
     @Override
     @SuppressWarnings("unchecked")
     public List<ReporteHabitacionDto> getOcupacion(LocalDateTime inicio, LocalDateTime fin) {
-        List<Object[]> results = entityManager.createNativeQuery("SELECT * FROM fn_Reporte_Ocupacion(:inicio, :fin)")
+        List<Object[]> results = entityManager.createNativeQuery("SELECT * FROM fn_Reporte_Ocupacion_Efectiva(:inicio, :fin)")
                 .setParameter("inicio", Timestamp.valueOf(inicio))
                 .setParameter("fin", Timestamp.valueOf(fin))
                 .getResultList();
@@ -70,16 +69,18 @@ public class ReporteServiceImpl implements ReporteRepository {
     @Override
     @SuppressWarnings("unchecked")
     public List<ReporteCobroDto> getCobros(LocalDateTime inicio, LocalDateTime fin) {
-        List<Object[]> results = entityManager.createNativeQuery("SELECT * FROM fn_Reporte_Cobros(:inicio, :fin)")
+        List<Object[]> results = entityManager.createNativeQuery("SELECT * FROM fn_Reporte_Cobros_Consolidado(:inicio, :fin)")
                 .setParameter("inicio", Timestamp.valueOf(inicio))
                 .setParameter("fin", Timestamp.valueOf(fin))
                 .getResultList();
 
         return results.stream().map(row -> new ReporteCobroDto(
-                (String) row[0],
-                (String) row[1],
-                (BigDecimal) row[2],
-                ((Timestamp) row[3]).toLocalDateTime()
+                (String) row[0],                       // numero_habitacion
+                (String) row[1],                       // nombre_cliente
+                (BigDecimal) row[2],                   // total_alojamiento
+                (BigDecimal) row[3],                   // total_consumos
+                (BigDecimal) row[4],                   // total_general
+                ((Timestamp) row[5]).toLocalDateTime() // fecha_cierre
         )).collect(Collectors.toList());
     }
 

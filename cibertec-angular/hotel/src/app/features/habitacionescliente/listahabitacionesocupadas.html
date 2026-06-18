@@ -1,57 +1,58 @@
-<div class="container py-4">
-  <div class="dashboard-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+<div class="container-fluid py-4">
+  <header class="dashboard-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-4 p-3 bg-white rounded shadow-sm">
     <div class="d-flex align-items-center">
-      <div class="header-icon me-3">
-        <i class="bi" [class.bi-house-lock-fill]="esVistaOcupadas()" [class.bi-house-door-fill]="!esVistaOcupadas()"></i>
+      <div class="header-icon me-3 p-3 rounded-circle bg-light">
+        <i class="bi fs-4" [ngClass]="esVistaOcupadas() ? 'bi-house-lock-fill text-danger' : 'bi-house-door-fill text-success'"></i>
       </div>
       <div>
-        <h2 class="fw-bold mb-1" [class.text-danger-emphasis]="esVistaOcupadas()" [class.text-success-emphasis]="!esVistaOcupadas()">
-          {{ esVistaOcupadas() ? 'Habitaciones Ocupadas' : 'Habitaciones Disponibles' }}
-        </h2>
-        <small class="text-muted">Estado actualizado de las habitaciones del hotel</small>
+        <h3 class="fw-bold mb-0">{{ esVistaOcupadas() ? 'Habitaciones Ocupadas' : 'Habitaciones Disponibles' }}</h3>
+        <small class="text-muted">Gestión de {{ esVistaOcupadas() ? 'pedidos' : 'reservas' }} en tiempo real</small>
       </div>
     </div>
 
-    <div class="filtro-box">
-      <label class="form-label fw-semibold small mb-1">
-        <i class="bi bi-funnel-fill me-1"></i> Filtrar por piso
-      </label>
-      <select class="form-select shadow-sm" [ngModel]="idPisoSeleccionado()" (ngModelChange)="idPisoSeleccionado.set($event)">
-        <option [ngValue]="0">Todos los pisos</option>
-        <option *ngFor="let p of pisos()" [ngValue]="p.idPiso">{{ p.descripcion || p.nombre }}</option>
-      </select>
-    </div>
-  </div>
+    <select class="form-select w-auto mt-3 mt-lg-0 shadow-sm border-0 bg-light"
+            [ngModel]="idPisoSeleccionado()"
+            (ngModelChange)="idPisoSeleccionado.set($event)">
+      <option [ngValue]="0">Todos los pisos</option>
+      <option *ngFor="let p of pisos()" [ngValue]="p.idPiso">Piso {{ p.descripcion }}</option>
+    </select>
+  </header>
 
   <div *ngIf="isLoading()" class="text-center py-5">
-    <div class="spinner-border text-warning spinner-lg" role="status"></div>
-    <p class="text-muted mt-3 fw-semibold">Sincronizando habitaciones...</p>
+    <div class="spinner-border text-primary"></div>
   </div>
 
-  <div class="row g-4" *ngIf="!isLoading()">
-    <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2" *ngFor="let h of habitacionesFiltradas()">
-      <div class="card room-card border-0 shadow h-100">
-        <div class="card-body text-center d-flex flex-column">
-          <div class="room-icon mx-auto mb-3">
-            <i class="bi" [class.bi-house-lock-fill]="esVistaOcupadas()" [class.bi-house-door-fill]="!esVistaOcupadas()"></i>
-          </div>
-          <h4 class="fw-bold mb-1">Hab. {{ h.numero }}</h4>
-          <span class="badge categoria-badge mx-auto mb-3">{{ getCategoriaNombre(h.idCategoria) }}</span>
-          <div class="mt-auto">
-            <button *ngIf="esVistaOcupadas()" class="btn btn-warning w-100 fw-semibold shadow-sm" (click)="irAVenta(h.idHabitacion)">
-              <i class="bi bi-cart-plus-fill me-2"></i> Realizar Pedido
-            </button>
-            <div *ngIf="!esVistaOcupadas()" class="estado-disponible">
-              <i class="bi bi-check-circle-fill me-1"></i> Disponible
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="row g-3" *ngIf="!isLoading()">
+    <ng-container *ngFor="let h of habitacionesFiltradas(); trackBy: trackById">
+<div class="col-12 col-md-4 col-lg-3 col-xl-2">
+  <div class="card room-card h-100 shadow-sm" [class.occupied]="esVistaOcupadas()">
+    <div class="card-body d-flex flex-column">
 
-    <div class="col-12 text-center py-5" *ngIf="habitacionesFiltradas().length === 0">
-      <div class="empty-icon mb-3"><i class="bi bi-building-fill"></i></div>
-      <h4 class="fw-bold text-secondary">No hay habitaciones encontradas</h4>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="badge rounded-pill bg-dark text-white px-3">{{ getCategoriaNombre(h.idCategoria) }}</span>
+        <span class="room-number">#{{ h.numero }}</span>
+      </div>
+
+      <div class="room-icon-wrapper my-2">
+        <i class="bi" [ngClass]="esVistaOcupadas() ? 'bi-house-lock-fill' : 'bi-house-check-fill'"></i>
+      </div>
+
+      <button class="btn w-100 mt-auto"
+              [ngClass]="esVistaOcupadas() ? 'btn-outline-danger' : 'btn-outline-primary'"
+              (click)="irAVenta(h.idHabitacion)">
+        {{ esVistaOcupadas() ? 'Gestionar' : 'Reservar Ahora' }}
+      </button>
+
+    </div>
+  </div>
+</div>
+    </ng-container>
+
+    <div *ngIf="habitacionesFiltradas().length === 0" class="col-12 text-center py-5">
+      <div class="empty-state">
+        <i class="bi bi-search fs-1 text-muted"></i>
+        <p class="text-muted mt-2">No se encontraron habitaciones según los filtros.</p>
+      </div>
     </div>
   </div>
 </div>

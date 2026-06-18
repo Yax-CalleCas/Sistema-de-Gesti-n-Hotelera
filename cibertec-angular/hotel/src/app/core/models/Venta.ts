@@ -1,4 +1,5 @@
-import { DetalleVenta } from './detalleventa';
+
+import { DetalleVenta } from "./detalleventa";
 
 export interface Venta {
   idVenta?: number;
@@ -8,3 +9,10 @@ export interface Venta {
   detalles: DetalleVenta[];
 }
 
+export interface ItemServicio {
+  producto: string;
+  cantidad: number;
+  precioUnitario: number;
+  estadoVenta: 'PAGADO' | 'PENDIENTE' | 'DEBE';
+  subTotal: number;
+}

@@ -44,6 +44,12 @@ public class ReporteController {
     public ResponseEntity<ApiResponse<List<ReporteCobroDto>>> getCobros(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin) {
+
+        // Validación básica de coherencia temporal
+        if (inicio.isAfter(fin)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("La fecha de inicio no puede ser posterior a la fecha de fin."));
+        }
+
         return ResponseEntity.ok(ApiResponse.success(reporteService.getCobros(inicio, fin)));
     }
 

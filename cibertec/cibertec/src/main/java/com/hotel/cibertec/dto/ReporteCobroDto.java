@@ -1,7 +1,6 @@
 package com.hotel.cibertec.dto;
 
 import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -13,6 +12,8 @@ import java.time.LocalDateTime;
 public class ReporteCobroDto {
     private String numeroHabitacion;
     private String nombreCliente;
-    private BigDecimal totalPagado;
-    private LocalDateTime fechaPago;
+    private BigDecimal totalAlojamiento;
+    private BigDecimal totalConsumos;
+    private BigDecimal totalGeneral;
+    private LocalDateTime fechaCierre;
 }

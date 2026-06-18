@@ -4,6 +4,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { LoginComponent } from './features/auth/components/login/LoginComponent';
 import { Layout } from '../app/features/layout/layout';
+import { Resumensalida } from './features/salida-habitacion/procesarsalida/resumensalida/resumensalida';
 
 export const routes: Routes = [
   // Ruta pública
@@ -127,7 +128,10 @@ export const routes: Routes = [
     ]
   },
 
-
+{
+  path: 'admin/resumensalida/:id',
+  component: Resumensalida
+},
 
   // Redirecciones globales obligatorias
   { path: '', redirectTo: 'login', pathMatch: 'full' },

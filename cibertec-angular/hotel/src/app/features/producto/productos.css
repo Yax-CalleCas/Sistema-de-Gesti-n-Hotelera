@@ -1,0 +1,101 @@
+/* ==========================================================================
+   Estilos Globales y Refinamiento de Componentes (Productos)
+   ========================================================================== */
+
+/* Animación sutil al pasar el cursor sobre las filas de la tabla */
+.table-hover tbody tr {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(33, 37, 41, 0.03) !important;
+}
+
+/* Optimización de las imágenes de los productos */
+td img {
+  border: 2px solid #dee2e6;
+  transition: transform 0.2s ease;
+}
+
+td img:hover {
+  transform: scale(1.1);
+}
+
+/* Transiciones para todos los botones del componente */
+.btn {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Refinamiento de los botones de acción en la tabla */
+.btn-sm {
+  border-radius: 6px;
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover {
+  background-color: #e0a800;
+  border-color: #d39e00;
+  color: #212529;
+  box-shadow: 0 2px 4px rgba(224, 168, 0, 0.3);
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.btn-danger:hover {
+  background-color: #bd2130;
+  border-color: #b21f2d;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+/* Estilización personalizada de la Paginación Bootstrap */
+.pagination .page-item .page-link {
+  color: #212529;
+  border-color: #dee2e6;
+  background-color: #ffffff;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.pagination .page-item .page-link:hover {
+  color: #000000;
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+  color: #ffffff;
+  background-color: #212529; /* Sincronizado con el bg-dark del card header */
+  border-color: #212529;
+  box-shadow: 0 2px 4px rgba(33, 37, 41, 0.2);
+}
+
+.pagination .page-item.disabled .page-link {
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+/* Ajustes de legibilidad para los Badges de Stock */
+.badge {
+  padding: 0.5em 0.75em;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.bg-success-subtle {
+  background-color: #d1e7dd !important;
+  color: #0f5132 !important;
+}
+
+.bg-danger-subtle {
+  background-color: #f8d7da !important;
+  color: #842029 !important;
+}

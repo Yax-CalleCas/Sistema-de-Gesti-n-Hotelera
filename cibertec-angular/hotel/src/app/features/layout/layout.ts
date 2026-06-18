@@ -7,15 +7,18 @@ import { RouterModule, Router } from '@angular/router';
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './layout.html',
-  styleUrl: './layout.scss',
+  styleUrls: ['./layout.scss']
 })
 export class Layout {
   private readonly router = inject(Router);
 
+  // Obtenemos el usuario del localStorage para mostrarlo en el header
+  get usuarioNombre(): string {
+    return localStorage.getItem('usuario') || 'Usuario';
+  }
+
   cerrarSesion(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('usuario');
-    localStorage.removeItem('rol');
+    localStorage.clear(); // Limpieza total
     this.router.navigate(['/login']);
   }
 }

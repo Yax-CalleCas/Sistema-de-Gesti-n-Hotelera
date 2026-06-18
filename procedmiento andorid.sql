@@ -97,8 +97,9 @@ AS $$
 BEGIN
     Resultado := TRUE;
     IF NOT EXISTS (SELECT 1 FROM HABITACION WHERE numero = p_Numero) THEN
-        INSERT INTO HABITACION(numero, detalle, precio, idpiso, idcategoria, idestadohabitacion)
-        VALUES (p_Numero, p_Detalle, p_Precio, p_IdPiso, p_IdCategoria, 1);
+        -- Se agregó la columna 'estado' y su valor TRUE
+        INSERT INTO HABITACION(numero, detalle, precio, idpiso, idcategoria, idestadohabitacion, estado)
+        VALUES (p_Numero, p_Detalle, p_Precio, p_IdPiso, p_IdCategoria, 1, TRUE);
     ELSE
         Resultado := FALSE;
     END IF;
@@ -220,66 +221,57 @@ END;
 $$;
 
 
-CREATE OR REPLACE PROCEDURE sp_RegistrarPersona(
-IN p_TipoDocumento VARCHAR,
-IN p_Documento VARCHAR,
-IN p_Nombre VARCHAR,
-IN p_Apellido VARCHAR,
-IN p_Correo VARCHAR,
-IN p_Clave VARCHAR,
-IN p_IdTipoPersona INT,
-OUT Resultado BOOLEAN
-)
-LANGUAGE plpgsql
-AS $$
+CREATE OR REPLACE FUNCTION sp_RegistrarPersona(
+    p_TipoDocumento VARCHAR, p_Documento VARCHAR, p_Nombre VARCHAR,
+    p_Apellido VARCHAR, p_Correo VARCHAR, p_Clave VARCHAR, p_IdTipoPersona INT
+) RETURNS BOOLEAN AS $$
 BEGIN
-	Resultado := TRUE;
-
-	IF NOT EXISTS (SELECT 1 FROM PERSONA WHERE Documento = p_Documento) THEN
-		--  Añadimos la columna 'Estado' y le pasamos 'TRUE' por defecto en el VALUES
-		INSERT INTO PERSONA(TipoDocumento, Documento, Nombre, Apellido, Correo, Clave, IdTipoPersona, Estado)
-		VALUES (p_TipoDocumento, p_Documento, p_Nombre, p_Apellido, p_Correo, p_Clave, p_IdTipoPersona, TRUE);
-	ELSE
-		Resultado := FALSE;
-	END IF;
+    IF NOT EXISTS (SELECT 1 FROM PERSONA WHERE Documento = p_Documento) THEN
+        -- Incluimos fechaCreacion usando NOW()
+        INSERT INTO PERSONA(TipoDocumento, Documento, Nombre, Apellido, Correo, Clave, IdTipoPersona, Estado, fechaCreacion)
+        VALUES (p_TipoDocumento, p_Documento, p_Nombre, p_Apellido, p_Correo, p_Clave, p_IdTipoPersona, TRUE, NOW());
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
 END;
-$$;
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE PROCEDURE sp_ModificarPersona(
-IN p_IdPersona INT,
-IN p_TipoDocumento VARCHAR,
-IN p_Documento VARCHAR,
-IN p_Nombre VARCHAR,
-IN p_Apellido VARCHAR,
-IN p_Correo VARCHAR,
-IN p_Clave VARCHAR,
-IN p_IdTipoPersona INT,
-IN p_Estado BOOLEAN,
-OUT Resultado BOOLEAN
-)
-LANGUAGE plpgsql
-AS $$
+CREATE OR REPLACE FUNCTION sp_ModificarPersona(
+    p_IdPersona INT, 
+    p_TipoDocumento VARCHAR, 
+    p_Documento VARCHAR, 
+    p_Nombre VARCHAR, 
+    p_Apellido VARCHAR, 
+    p_Correo VARCHAR, 
+    p_Clave VARCHAR, 
+    p_IdTipoPersona INT, 
+    p_Estado BOOLEAN,
+    p_FotoUrl VARCHAR
+) RETURNS BOOLEAN AS $$
 BEGIN
-	Resultado := TRUE;
-
-	IF NOT EXISTS (SELECT 1 FROM PERSONA WHERE Documento = p_Documento AND IdPersona <> p_IdPersona) THEN
-		UPDATE PERSONA
-		SET TipoDocumento = p_TipoDocumento,
-			Documento = p_Documento,
-			Nombre = p_Nombre,
-			Apellido = p_Apellido,
-			Correo = p_Correo,
-			Clave = p_Clave,
-			IdTipoPersona = p_IdTipoPersona,
-			Estado = p_Estado
-		WHERE IdPersona = p_IdPersona;
-	ELSE
-		Resultado := FALSE;
-	END IF;
+    IF NOT EXISTS (SELECT 1 FROM PERSONA WHERE Documento = p_Documento AND IdPersona <> p_IdPersona) THEN
+        UPDATE PERSONA
+        SET TipoDocumento = p_TipoDocumento, 
+            Documento = p_Documento, 
+            Nombre = p_Nombre, 
+            Apellido = p_Apellido, 
+            Correo = p_Correo, 
+            Clave = p_Clave, 
+            IdTipoPersona = p_IdTipoPersona, 
+            Estado = p_Estado,
+            foto_url = p_FotoUrl -- Actualización unificada
+        WHERE IdPersona = p_IdPersona;
+        
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
 END;
-$$;
+$$ LANGUAGE plpgsql;
 
-CREATE PROCEDURE sp_RegistrarRecepcion(
+
+CREATE OR REPLACE PROCEDURE sp_RegistrarRecepcion(
     IN p_IdCliente INT,
     IN p_TipoDocumento VARCHAR,
     IN p_Documento VARCHAR,
@@ -300,19 +292,31 @@ DECLARE v_IdCliente INT;
 BEGIN
     Resultado := TRUE;
     v_IdCliente := p_IdCliente;
-	
+    
+    -- 1. ASEGURAR QUE NO HAYA OTRA RECEPCIÓN ACTIVA EN LA MISMA HABITACIÓN
+    UPDATE RECEPCION 
+    SET Estado = FALSE 
+    WHERE IdHabitacion = p_IdHabitacion AND Estado = TRUE;
+
+    -- 2. Lógica de cliente
     IF v_IdCliente IS NULL OR v_IdCliente = 0 OR NOT EXISTS (SELECT 1 FROM PERSONA WHERE IdPersona = v_IdCliente) THEN
         INSERT INTO PERSONA(TipoDocumento, Documento, Nombre, Apellido, Correo, IdTipoPersona, Estado)
         VALUES (p_TipoDocumento, p_Documento, p_Nombre, p_Apellido, p_Correo, 3, TRUE)
         RETURNING IdPersona INTO v_IdCliente;
     END IF;
 
+    -- 3. Actualizar estado de la habitación
     UPDATE HABITACION SET IdEstadoHabitacion = 2 WHERE IdHabitacion = p_IdHabitacion;
 
+    -- 4. Insertar la nueva recepción
     INSERT INTO RECEPCION(IdCliente, IdHabitacion, FechaEntrada, FechaSalida, PrecioInicial, Adelanto, PrecioRestante, Observacion, Estado)
     VALUES (v_IdCliente, p_IdHabitacion, CURRENT_DATE, p_FechaSalida, p_PrecioInicial, p_Adelanto, p_PrecioRestante, p_Observacion, TRUE);
+    
+EXCEPTION WHEN OTHERS THEN
+    Resultado := FALSE;
 END;
 $$;
+
 
 CREATE OR REPLACE PROCEDURE sp_RegistrarSalida(
     IN p_IdRecepcion INT,
@@ -324,7 +328,13 @@ CREATE OR REPLACE PROCEDURE sp_RegistrarSalida(
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- 1. Actualizar la recepción
+    -- 1. Verificar existencia
+    IF NOT EXISTS (SELECT 1 FROM RECEPCION WHERE IdRecepcion = p_IdRecepcion) THEN
+        p_Resultado := FALSE;
+        RETURN;
+    END IF;
+
+    -- 2. Actualizar recepción
     UPDATE RECEPCION
     SET Estado = FALSE,
         FechaSalidaConfirmacion = CURRENT_TIMESTAMP,
@@ -332,29 +342,30 @@ BEGIN
         CostoPenalidad = p_CostoPenalidad
     WHERE IdRecepcion = p_IdRecepcion;
 
-    -- 2. Marcar consumos (ventas) como 'PAGADO' al cerrar la recepción
+    -- 3. Marcar consumos
     UPDATE VENTA 
     SET Estado = 'PAGADO' 
     WHERE IdRecepcion = p_IdRecepcion AND Estado != 'PAGADO';
 
-    -- 3. Cambiar habitación a estado 3 (Limpieza/Mantenimiento)
+    -- 4. Cambiar habitación a estado 3 (Limpieza)
     UPDATE HABITACION
     SET IdEstadoHabitacion = 3
     WHERE IdHabitacion = p_IdHabitacion;
 
     p_Resultado := TRUE;
+    -- COMMIT y ROLLBACK se eliminan porque Spring Boot los controla mediante @Transactional
 EXCEPTION WHEN OTHERS THEN
     p_Resultado := FALSE;
-    RAISE NOTICE 'Error en sp_RegistrarSalida: %', SQLERRM;
+    RAISE; -- Esto relanza el error para que Spring Boot vea que falló y ejecute su propio ROLLBACK automáticamente
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE sp_RegistrarVenta(
-    IN p_IdRecepcion INT,
-    IN p_Estado VARCHAR,
-    IN p_Detalles TEXT, 
-    OUT p_Resultado BOOLEAN
+CREATE OR REPLACE FUNCTION sp_RegistrarVenta(
+    p_IdRecepcion INT,
+    p_Estado VARCHAR,
+    p_Detalles TEXT
 )
+RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -363,20 +374,19 @@ DECLARE
     v_Detalle RECORD;
     v_JsonData JSON;
 BEGIN
-    -- Conversión explícita del parámetro de texto a JSON
     v_JsonData := p_Detalles::JSON;
 
-    -- 1. Validar existencia de la recepción
+    -- 1. Validar existencia
     IF NOT EXISTS (SELECT 1 FROM RECEPCION WHERE IdRecepcion = p_IdRecepcion) THEN
         RAISE EXCEPTION 'La recepción con ID % no existe.', p_IdRecepcion;
     END IF;
 
-    -- 2. Insertar cabecera de la venta
+    -- 2. Insertar cabecera
     INSERT INTO VENTA (IdRecepcion, Total, Estado, FechaCreacion)
-    VALUES (p_IdRecepcion, 0.00, COALESCE(p_Estado, 'PAGADO'), CURRENT_TIMESTAMP)
+    VALUES (p_IdRecepcion, 0.00, p_Estado, CURRENT_TIMESTAMP)
     RETURNING IdVenta INTO v_IdVenta;
 
-    -- 3. Procesamiento de detalles
+    -- 3. Procesar detalles
     FOR v_Detalle IN 
         SELECT 
             (elem->>'idProducto')::INT AS id_prod,
@@ -384,16 +394,13 @@ BEGIN
             (elem->>'precioUnitario')::NUMERIC(10,2) AS precio
         FROM json_array_elements(v_JsonData) AS elem
     LOOP
-        -- Validar stock disponible
         IF (SELECT Cantidad FROM PRODUCTO WHERE IdProducto = v_Detalle.id_prod) < v_Detalle.cant THEN
             RAISE EXCEPTION 'Stock insuficiente para el producto ID %', v_Detalle.id_prod;
         END IF;
 
-        -- 4. Insertar detalle
         INSERT INTO DETALLE_VENTA (IdVenta, IdProducto, Cantidad, preciounitario, SubTotal)
         VALUES (v_IdVenta, v_Detalle.id_prod, v_Detalle.cant, v_Detalle.precio, (v_Detalle.cant * v_Detalle.precio));
 
-        -- 5. Actualizar stock del producto
         UPDATE PRODUCTO 
         SET Cantidad = Cantidad - v_Detalle.cant 
         WHERE IdProducto = v_Detalle.id_prod;
@@ -401,15 +408,15 @@ BEGIN
         v_TotalVenta := v_TotalVenta + (v_Detalle.cant * v_Detalle.precio);
     END LOOP;
 
-    -- 6. Actualizar total final
+    -- 4. Finalizar
     UPDATE VENTA SET Total = v_TotalVenta WHERE IdVenta = v_IdVenta;
 
-    p_Resultado := TRUE;
+    RETURN TRUE;
 EXCEPTION WHEN OTHERS THEN
-    -- El ROLLBACK es automático en procedimientos de Postgres ante excepciones
     RAISE;
 END;
 $$;
+
 
 
 -- reportes del sistema ----------------------------------
@@ -420,34 +427,53 @@ DROP FUNCTION IF EXISTS fn_Reporte_Ventas(TIMESTAMP, TIMESTAMP);
 DROP FUNCTION IF EXISTS fn_Reporte_Ocupacion(TIMESTAMP, TIMESTAMP);
 DROP FUNCTION IF EXISTS fn_Reporte_Cobros(TIMESTAMP, TIMESTAMP);
 
--------------------------------------------
--- 1. Reporte de Productos Bajo Stock
-CREATE OR REPLACE FUNCTION fn_Reporte_ProductosBajoStock(p_limite INT)
-RETURNS TABLE(id_producto INT, nombre_prod TEXT, cant INT, prec NUMERIC, est BOOLEAN) AS $$
+CREATE OR REPLACE FUNCTION fn_Reporte_Cobros_Consolidado(p_inicio TIMESTAMP, p_fin TIMESTAMP)
+RETURNS TABLE(
+    numero_habitacion TEXT, 
+    nombre_cliente TEXT, 
+    total_alojamiento NUMERIC, 
+    total_consumos NUMERIC, 
+    total_general NUMERIC,
+    fecha_cierre TIMESTAMP
+) AS $$
 BEGIN
     RETURN QUERY 
-    SELECT p.idproducto, p.nombre::TEXT, p.cantidad, p.precio, p.estado 
-    FROM PRODUCTO p 
-    WHERE p.cantidad <= p_limite;
+    SELECT 
+        h.numero::TEXT, 
+        (p.nombre || ' ' || p.apellido)::TEXT, 
+        r.totalpagado AS total_alojamiento,
+        COALESCE((SELECT SUM(v.total) FROM VENTA v WHERE v.idrecepcion = r.idrecepcion AND v.estado = 'PAGADO'), 0) AS total_consumos,
+        (r.totalpagado + COALESCE((SELECT SUM(v.total) FROM VENTA v WHERE v.idrecepcion = r.idrecepcion AND v.estado = 'PAGADO'), 0)) AS total_general,
+        r.fechaSalidaConfirmacion
+    FROM RECEPCION r
+    JOIN HABITACION h ON r.idhabitacion = h.idhabitacion
+    JOIN PERSONA p ON r.idcliente = p.idpersona 
+    WHERE p.idtipopersona = 3 
+    AND r.fechaSalidaConfirmacion BETWEEN p_inicio AND p_fin;
 END;
 $$ LANGUAGE plpgsql;
 
--- 2. Reporte de Ventas
-CREATE OR REPLACE FUNCTION fn_Reporte_Ventas(p_inicio TIMESTAMP, p_fin TIMESTAMP)
+
+CREATE OR REPLACE FUNCTION fn_Reporte_Ventas_Validadas(p_inicio TIMESTAMP, p_fin TIMESTAMP)
 RETURNS TABLE(nombre_producto TEXT, cantidad_total BIGINT, total_ingresado NUMERIC) AS $$
 BEGIN
     RETURN QUERY 
-    SELECT p.nombre::TEXT, SUM(dv.cantidad)::BIGINT, SUM(dv.subtotal)::NUMERIC
+    SELECT 
+        p.nombre::TEXT, 
+        SUM(dv.cantidad)::BIGINT, 
+        SUM(dv.subtotal)::NUMERIC
     FROM VENTA v
     JOIN DETALLE_VENTA dv ON v.idventa = dv.idventa
     JOIN PRODUCTO p ON dv.idproducto = p.idproducto
     WHERE v.fechacreacion BETWEEN p_inicio AND p_fin
+    AND v.estado = 'PAGADO' -- Regla crítica para no inflar recaudación
     GROUP BY p.nombre;
 END;
 $$ LANGUAGE plpgsql;
 
--- 3. Reporte de Ocupación
-CREATE OR REPLACE FUNCTION fn_Reporte_Ocupacion(p_inicio TIMESTAMP, p_fin TIMESTAMP)
+
+
+CREATE OR REPLACE FUNCTION fn_Reporte_Ocupacion_Efectiva(p_inicio TIMESTAMP, p_fin TIMESTAMP)
 RETURNS TABLE(num_habitacion TEXT, desc_categoria TEXT, veces_alquilada BIGINT) AS $$
 BEGIN
     RETURN QUERY 
@@ -455,31 +481,11 @@ BEGIN
     FROM RECEPCION r
     JOIN HABITACION h ON r.idhabitacion = h.idhabitacion
     JOIN CATEGORIA c ON h.idcategoria = c.idcategoria
-    WHERE r.fechaentrada BETWEEN p_inicio AND p_fin
+    WHERE r.fechaSalidaConfirmacion BETWEEN p_inicio AND p_fin -- Filtro por salida efectiva
     GROUP BY h.numero, c.descripcion;
 END;
 $$ LANGUAGE plpgsql;
 
--- 4. Reporte de Cobros
--- Asegúrate de que la tabla sea "CLIENTE" (o "TB_CLIENTE" si así se llama en tu DB)
-
-CREATE OR REPLACE FUNCTION fn_Reporte_Cobros(p_inicio TIMESTAMP, p_fin TIMESTAMP)
-RETURNS TABLE(numero_habitacion TEXT, nombre_cliente TEXT, total_pagado NUMERIC, fecha_pago TIMESTAMP) AS $$
-BEGIN
-    RETURN QUERY 
-    SELECT 
-        h.numero::TEXT, 
-        (p.nombre || ' ' || p.apellido)::TEXT, 
-        r.totalpagado, 
-        r.fechaSalidaConfirmacion
-    FROM RECEPCION r
-    JOIN HABITACION h ON r.idhabitacion = h.idhabitacion
-    -- Cambiamos el JOIN: ahora unimos con PERSONA y filtramos por idtipopersona = 3
-    JOIN PERSONA p ON r.idcliente = p.idpersona 
-    WHERE p.idtipopersona = 3 
-    AND r.fechaSalidaConfirmacion BETWEEN p_inicio AND p_fin;
-END;
-$$ LANGUAGE plpgsql;
 
 
 -- 4. Dashboard Estadísticas (Retorna una fila única)
@@ -504,6 +510,37 @@ select * from venta;
 
 
 
+
+
+-- Para el reporte de Ventas (filtros por fecha y joins)
+CREATE INDEX idx_venta_fecha ON VENTA(fechacreacion);
+CREATE INDEX idx_detalle_venta_idventa ON DETALLE_VENTA(idventa);
+CREATE INDEX idx_detalle_venta_idproducto ON DETALLE_VENTA(idproducto);
+
+-- Para el reporte de Ocupación
+CREATE INDEX idx_recepcion_fecha_entrada ON RECEPCION(fechaentrada);
+CREATE INDEX idx_recepcion_idhabitacion ON RECEPCION(idhabitacion);
+
+-- Para el reporte de Cobros
+CREATE INDEX idx_recepcion_fecha_salida ON RECEPCION(fechaSalidaConfirmacion);
+CREATE INDEX idx_persona_idtipopersona ON PERSONA(idtipopersona);
+
+-- Para productos bajo stock
+CREATE INDEX idx_producto_cantidad ON PRODUCTO(cantidad);
+
+
+
+SELECT idrecepcion, precioinicial, adelanto, preciorestante 
+FROM RECEPCION 
+WHERE idhabitacion = (SELECT idhabitacion FROM HABITACION WHERE numero = '43');
+
+
+-- Ejecuta esto y mira si la columna 'estado' tiene los valores correctos
+SELECT * FROM fn_Reporte_Ventas('2026-06-16 00:00:00', '2026-06-17 23:59:59');
+select * from venta;
+
+
+select * from persona;
 
 
 

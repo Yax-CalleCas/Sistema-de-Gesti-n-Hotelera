@@ -30,36 +30,40 @@ public class RecepcionServiceImpl implements RecepcionService {
     public List<RecepcionDto> listarTodos() {
         return repository.findAll()
                 .stream()
-                .map(this::toDto)
+                .map(this::toDtoConDatosCliente)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * IMPORTANTE: Se utiliza findByIdWithDetails del repositorio para cargar
+     * mediante LEFT JOIN FETCH todas las relaciones necesarias en una sola consulta SQL.
+     */
     @Override
     @Transactional(readOnly = true)
     public RecepcionDto buscarPorId(Integer id) {
-        return repository.findById(id)
-                .map(this::toDtoConDatosCliente) // 👈 CAMBIA 'this::toDto' por 'this::toDtoConDatosCliente'
-                .orElseThrow(() -> new RuntimeException("Registro no encontrado"));
+        return repository.findByIdWithDetails(id)
+                .map(this::toDtoConDatosCliente)
+                .orElseThrow(() -> new RuntimeException("Registro de recepción no encontrado con ID: " + id));
     }
 
 
     @Override
     @Transactional(readOnly = true)
     public RecepcionDto buscarActivaPorHabitacion(Integer idHabitacion) {
-        // En los sistemas de Cibertec, true o 1 mapean el hospedaje vigente.
-        // Filtramos por el id de la habitación y que el estado de la transacción sea activo (true)
-        return repository.findFirstByHabitacionIdHabitacionAndEstado(idHabitacion, true)
-                .map(this::toDtoConDatosCliente) // Usamos un mapeador extendido para pintar la vista de Angular
-                .orElseThrow(() -> new RuntimeException("No se encontró ninguna recepción activa para esta habitación"));
+        List<Recepcion> lista = repository.findByHabitacionIdAndEstadoWithDetails(idHabitacion, true);
+
+        if (lista == null || lista.isEmpty()) {
+            throw new RuntimeException("No se encontró ninguna recepción activa para esta habitación");
+        }
+
+        return toDtoConDatosCliente(lista.get(0));
     }
 
     @Override
     @Transactional
     public RecepcionDto guardar(RecepcionDto dto) {
-        // Definimos el procedimiento
         StoredProcedureQuery query = entityManager.createStoredProcedureQuery("sp_RegistrarRecepcion");
 
-        // Registramos los parámetros de entrada (usamos java.sql.Date para p_FechaSalida)
         query.registerStoredProcedureParameter("p_IdCliente", Integer.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_TipoDocumento", String.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_Documento", String.class, ParameterMode.IN);
@@ -72,11 +76,9 @@ public class RecepcionServiceImpl implements RecepcionService {
         query.registerStoredProcedureParameter("p_Adelanto", java.math.BigDecimal.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_PrecioRestante", java.math.BigDecimal.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_Observacion", String.class, ParameterMode.IN);
-
-        // Registramos el parámetro de salida con su nombre exacto
         query.registerStoredProcedureParameter("Resultado", Boolean.class, ParameterMode.OUT);
 
-        // Asignamos los valores
+        // Asignación de valores
         query.setParameter("p_IdCliente", dto.getIdCliente() != null ? dto.getIdCliente() : 0);
         query.setParameter("p_TipoDocumento", dto.getTipoDocumento());
         query.setParameter("p_Documento", dto.getDocumento());
@@ -84,27 +86,22 @@ public class RecepcionServiceImpl implements RecepcionService {
         query.setParameter("p_Apellido", dto.getApellido());
         query.setParameter("p_Correo", dto.getCorreo());
         query.setParameter("p_IdHabitacion", dto.getIdHabitacion());
-
-        // Conversión crítica: LocalDate a java.sql.Date
         query.setParameter("p_FechaSalida", dto.getFechaSalida() != null ? java.sql.Date.valueOf(dto.getFechaSalida()) : null);
-
-        query.setParameter("p_PrecioInicial", dto.getPrecioInicial());
-        query.setParameter("p_Adelanto", dto.getAdelanto());
-        query.setParameter("p_PrecioRestante", dto.getPrecioRestante());
+        query.setParameter("p_PrecioInicial", dto.getPrecioInicial() != null ? dto.getPrecioInicial() : java.math.BigDecimal.ZERO);
+        query.setParameter("p_Adelanto", dto.getAdelanto() != null ? dto.getAdelanto() : java.math.BigDecimal.ZERO);
+        query.setParameter("p_PrecioRestante", dto.getPrecioRestante() != null ? dto.getPrecioRestante() : java.math.BigDecimal.ZERO);
         query.setParameter("p_Observacion", dto.getObservacion());
 
-        // Ejecutamos
         query.execute();
 
-        // Capturamos el resultado
         Boolean resultado = (Boolean) query.getOutputParameterValue("Resultado");
-
-        if (resultado == null || !resultado) {
+        if (Boolean.TRUE.equals(resultado)) {
+            return buscarActivaPorHabitacion(dto.getIdHabitacion());
+        } else {
             throw new RuntimeException("Error: El procedimiento almacenado no pudo completar el registro.");
         }
-
-        return dto;
     }
+
     @Override
     @Transactional
     public RecepcionDto actualizar(Integer id, RecepcionDto dto) {
@@ -118,129 +115,101 @@ public class RecepcionServiceImpl implements RecepcionService {
 
         return toDto(repository.save(recepcion));
     }
+
     @Override
     @Transactional
     public Boolean procesarSalida(Integer idRecepcion, Integer idHabitacion, BigDecimal penalidad, BigDecimal total) {
-        // 1. Definimos el procedimiento llamando al nombre exacto de la BD
         StoredProcedureQuery query = entityManager.createStoredProcedureQuery("sp_RegistrarSalida");
 
-        // 2. Registramos parámetros de ENTRADA
         query.registerStoredProcedureParameter("p_IdRecepcion", Integer.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_IdHabitacion", Integer.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_CostoPenalidad", BigDecimal.class, ParameterMode.IN);
         query.registerStoredProcedureParameter("p_TotalPagado", BigDecimal.class, ParameterMode.IN);
-
-        // 3. Registramos el parámetro de SALIDA (Debe llamarse igual que en el Procedure)
         query.registerStoredProcedureParameter("p_Resultado", Boolean.class, ParameterMode.OUT);
 
-        // 4. Asignamos valores
         query.setParameter("p_IdRecepcion", idRecepcion);
         query.setParameter("p_IdHabitacion", idHabitacion);
         query.setParameter("p_CostoPenalidad", penalidad);
         query.setParameter("p_TotalPagado", total);
 
-        // 5. Ejecución
         query.execute();
 
-        // 6. Captura segura del resultado
         Boolean resultado = (Boolean) query.getOutputParameterValue("p_Resultado");
 
-        // Retornamos el resultado del SP, por defecto false si llegara a ser nulo
-        return resultado != null && resultado;
+        entityManager.flush();
+        entityManager.clear();
+
+        if (resultado == null || !resultado) {
+            throw new RuntimeException("No se pudo completar el check-out.");
+        }
+
+        return true;
     }
+
+
     @Override
     @Transactional
     public void eliminar(Integer id) {
         Recepcion recepcion = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Registro no encontrado"));
-
         recepcion.setEstado(false);
         repository.save(recepcion);
     }
 
     private RecepcionDto toDto(Recepcion entity) {
-        return RecepcionDto.builder()
+        RecepcionDto dto = RecepcionDto.builder()
                 .idRecepcion(entity.getIdRecepcion())
                 .idCliente(entity.getCliente() != null ? entity.getCliente().getIdPersona() : null)
                 .idHabitacion(entity.getHabitacion() != null ? entity.getHabitacion().getIdHabitacion() : null)
                 .fechaEntrada(entity.getFechaEntrada())
                 .fechaSalida(entity.getFechaSalida())
                 .fechaSalidaConfirmacion(entity.getFechaSalidaConfirmacion())
-                .precioInicial(entity.getPrecioInicial())
-                .adelanto(entity.getAdelanto())
-                .precioRestante(entity.getPrecioRestante())
-                .totalPagado(entity.getTotalPagado())
-                .costoPenalidad(entity.getCostoPenalidad())
                 .observacion(entity.getObservacion())
                 .estado(entity.getEstado())
                 .build();
-    }
 
-    // ⚡ MAPEADOR ADICIONAL: Extrae los datos planos de la persona adjunta para que Angular los lea directo en el DTO
-    private RecepcionDto toDtoConDatosCliente(Recepcion entity) {
-
-        RecepcionDto dto = toDto(entity);
-
-        if (entity.getCliente() != null) {
-            dto.setNombre(entity.getCliente().getNombre());
-            dto.setApellido(entity.getCliente().getApellido());
-            dto.setDocumento(entity.getCliente().getDocumento());
-            dto.setTipoDocumento(entity.getCliente().getTipoDocumento());
-            dto.setCorreo(entity.getCliente().getCorreo());
-        }
-
-        if (entity.getHabitacion() != null) {
-
-            dto.setNumero(entity.getHabitacion().getNumero());
-
-            dto.setDetalleHabitacion(
-                    entity.getHabitacion().getDetalle()
-            );
-
-            dto.setPrecioHabitacion(
-                    entity.getHabitacion().getPrecio()
-            );
-
-            if (entity.getHabitacion().getEstadoHabitacion() != null) {
-                dto.setEstadoHabitacion(
-                        entity.getHabitacion()
-                                .getEstadoHabitacion()
-                                .getDescripcion()
-                );
-            }
-
-            if (entity.getHabitacion().getCategoria() != null) {
-                dto.setCategoriaNombre(
-                        entity.getHabitacion()
-                                .getCategoria()
-                                .getDescripcion()
-                );
-            }
-
-            if (entity.getHabitacion().getPiso() != null) {
-                dto.setPisoNombre(
-                        entity.getHabitacion()
-                                .getPiso()
-                                .getDescripcion()
-                );
-            }
-        }
+        dto.setPrecioInicial(entity.getPrecioInicial() != null ? entity.getPrecioInicial() : BigDecimal.ZERO);
+        dto.setAdelanto(entity.getAdelanto() != null ? entity.getAdelanto() : BigDecimal.ZERO);
+        dto.setPrecioRestante(entity.getPrecioRestante() != null ? entity.getPrecioRestante() : BigDecimal.ZERO);
+        dto.setTotalPagado(entity.getTotalPagado() != null ? entity.getTotalPagado() : BigDecimal.ZERO);
+        dto.setCostoPenalidad(entity.getCostoPenalidad() != null ? entity.getCostoPenalidad() : BigDecimal.ZERO);
 
         return dto;
     }
-    private Recepcion toEntity(RecepcionDto dto) {
-        return Recepcion.builder()
-                .idRecepcion(dto.getIdRecepcion())
-                .fechaEntrada(dto.getFechaEntrada())
-                .fechaSalida(dto.getFechaSalida())
-                .fechaSalidaConfirmacion(dto.getFechaSalidaConfirmacion())
-                .precioInicial(dto.getPrecioInicial())
-                .adelanto(dto.getAdelanto())
-                .precioRestante(dto.getPrecioRestante())
-                .totalPagado(dto.getTotalPagado())
-                .costoPenalidad(dto.getCostoPenalidad())
-                .observacion(dto.getObservacion())
-                .estado(dto.getEstado())
-                .build();
+
+
+    private RecepcionDto toDtoConDatosCliente(Recepcion entity) {
+        RecepcionDto dto = toDto(entity);
+
+        if (entity.getCliente() != null) {
+            dto.setNombre(entity.getCliente().getNombre() != null ? entity.getCliente().getNombre() : "N/A");
+            dto.setApellido(entity.getCliente().getApellido() != null ? entity.getCliente().getApellido() : "");
+            dto.setDocumento(entity.getCliente().getDocumento() != null ? entity.getCliente().getDocumento() : "S/D");
+            dto.setTipoDocumento(entity.getCliente().getTipoDocumento() != null ? entity.getCliente().getTipoDocumento() : "N/A");
+            dto.setCorreo(entity.getCliente().getCorreo() != null ? entity.getCliente().getCorreo() : "N/A");
+        } else {
+            dto.setNombre("Cliente Desconocido");
+        }
+
+        // Manejo seguro de habitación
+        if (entity.getHabitacion() != null) {
+            dto.setNumero(entity.getHabitacion().getNumero() != null ? entity.getHabitacion().getNumero() : "000");
+            dto.setDetalleHabitacion(entity.getHabitacion().getDetalle() != null ? entity.getHabitacion().getDetalle() : "");
+            dto.setPrecioHabitacion(entity.getHabitacion().getPrecio() != null ? entity.getHabitacion().getPrecio() : BigDecimal.ZERO);
+
+            // Uso de operadores ternarios para evitar nulos en sub-objetos
+            dto.setEstadoHabitacion(entity.getHabitacion().getEstadoHabitacion() != null ?
+                    entity.getHabitacion().getEstadoHabitacion().getDescripcion() : "Sin Estado");
+
+            dto.setCategoriaNombre(entity.getHabitacion().getCategoria() != null ?
+                    entity.getHabitacion().getCategoria().getDescripcion() : "Sin Categoría");
+
+            dto.setPisoNombre(entity.getHabitacion().getPiso() != null ?
+                    entity.getHabitacion().getPiso().getDescripcion() : "Sin Piso");
+        } else {
+            dto.setNumero("Sin Asignar");
+        }
+
+        return dto;
     }
 }

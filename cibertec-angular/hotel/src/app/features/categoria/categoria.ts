@@ -9,7 +9,7 @@ import { Categoria } from '../../core/models/categoria.model';
   selector: 'app-categoria',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './categoria.html',
+  templateUrl: './categoria.html'
 })
 export class CategoriaComponent implements OnInit {
   private readonly service = inject(CategoriaService);

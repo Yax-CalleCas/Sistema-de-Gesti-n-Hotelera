@@ -16,6 +16,7 @@ const ROLES: Record<number, { nombre: string, badge: string }> = {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './persona-list.html',
+  styleUrls:['./persona-list.css']
 })
 export class PersonaListComponent implements OnInit {
   private readonly service = inject(PersonaService);
@@ -28,19 +29,36 @@ export class PersonaListComponent implements OnInit {
 
   roles = Object.entries(ROLES).map(([id, val]) => ({ id: Number(id), ...val }));
 
-  // Computados reactivos
+  // Señal computada para obtener la porción de personas por página
   paginatedPersonas = computed(() => {
     const start = (this.currentPage() - 1) * this.itemsPerPage;
     return this.personas().slice(start, start + this.itemsPerPage);
   });
 
-  ngOnInit(): void {
-    this.cargarPersonas();
+  // Señal computada para calcular el total de páginas
+  totalPaginas = computed(() => {
+    return Math.ceil(this.personas().length / this.itemsPerPage);
+  });
+
+  ngOnInit(): void { this.cargarPersonas(); }
+
+  // Cambiar de página de forma segura validando límites
+  cambiarPagina(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginas()) {
+      this.currentPage.set(pagina);
+    }
   }
 
   cargarPersonas(): void {
     this.service.listar().subscribe({
-      next: (res) => this.personas.set(res?.data || []),
+      next: (res) => {
+        this.personas.set(res?.data || []);
+
+        // Corrección de visualización: si al eliminar nos quedamos en una página sin registros, retrocedemos
+        if (this.currentPage() > this.totalPaginas() && this.totalPaginas() > 0) {
+          this.currentPage.set(this.totalPaginas());
+        }
+      },
       error: () => Swal.fire('Error', 'No se pudieron cargar los datos', 'error')
     });
   }
@@ -51,24 +69,62 @@ export class PersonaListComponent implements OnInit {
 
     const data = this.personaSeleccionada();
     const esEdicion = !!data.idPersona;
-
-    // Payload limpio
-    const payload: any = { ...data, idTipoPersona: Number(data.idTipoPersona) };
-    if (esEdicion && !payload.clave?.trim()) delete payload.clave;
+    const payload: Persona = {
+      ...data,
+      idTipoPersona: Number(data.idTipoPersona),
+      clave: data.clave || (esEdicion ? '**********' : ''),
+      fotoUrl: data.fotoUrl || ''
+    };
 
     const operacion = esEdicion
       ? this.service.actualizar(data.idPersona!, payload)
       : this.service.crear(payload);
 
     operacion.subscribe({
-      next: () => {
-        Swal.fire('Éxito', `Persona ${esEdicion ? 'actualizada' : 'registrada'} correctamente`, 'success');
+      next: (res) => {
+        Swal.fire('Éxito', res.message || 'Operación realizada', 'success');
         this.limpiarFormulario();
         this.cargarPersonas();
       },
-      error: (err) => Swal.fire('Error', err?.error?.message || 'Error al guardar', 'error'),
+      error: (err) => Swal.fire('Error', err?.error?.message || 'Error de validación', 'error'),
       complete: () => this.isProcessing.set(false)
     });
+  }
+
+  onImgError(event: any): void {
+    event.target.src = 'https://goo.su/V78kA';
+  }
+
+  cambiarEstado(p: Persona): void {
+    const nuevoEstado = !p.estado;
+    const payload: Persona = {
+        ...p,
+        estado: nuevoEstado,
+        idTipoPersona: Number(p.idTipoPersona),
+        clave: p.clave && p.clave.trim() !== '' ? p.clave : '**********',
+    };
+
+    this.service.actualizar(p.idPersona!, payload).subscribe({
+      next: () => this.cargarPersonas(),
+      error: (err) => {
+        console.error("Detalle del error 400:", err.error);
+        Swal.fire('Error', 'No se pudo cambiar el estado', 'error');
+      }
+    });
+  }
+
+  private crearPersonaVacia(): Persona {
+    return {
+      tipoDocumento: '',
+      documento: '',
+      nombre: '',
+      apellido: '',
+      correo: '',
+      clave: '',
+      idTipoPersona: 0,
+      estado: true,
+      fotoUrl: ''
+    };
   }
 
   eliminar(id: number | undefined): void {
@@ -89,14 +145,6 @@ export class PersonaListComponent implements OnInit {
     });
   }
 
-  cambiarEstado(p: Persona): void {
-    const updated = { ...p, estado: !p.estado, idTipoPersona: Number(p.idTipoPersona) };
-    this.service.actualizar(p.idPersona!, updated).subscribe({
-      next: () => this.cargarPersonas(),
-      error: () => Swal.fire('Error', 'No se pudo cambiar el estado', 'error')
-    });
-  }
-
   editar(persona: Persona): void {
     this.personaSeleccionada.set({ ...persona, clave: '' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -106,16 +154,7 @@ export class PersonaListComponent implements OnInit {
     this.personaSeleccionada.set(this.crearPersonaVacia());
   }
 
-  getRolInfo(id: number) {
-    return ROLES[id] || { nombre: 'Desconocido', badge: 'bg-secondary' };
-  }
+  getRolInfo(id: number) { return ROLES[id] || { nombre: 'Desconocido', badge: 'bg-secondary' }; }
 
-  // Añade este método dentro de la clase PersonaListComponent
-  trackByPersona(index: number, p: Persona): number | undefined {
-    return p.idPersona;
-  }
-
-  private crearPersonaVacia(): Persona {
-    return { tipoDocumento: '', documento: '', nombre: '', apellido: '', correo: '', clave: '', idTipoPersona: 0, estado: true };
-  }
+  trackByPersona = (_: number, p: Persona) => p.idPersona;
 }

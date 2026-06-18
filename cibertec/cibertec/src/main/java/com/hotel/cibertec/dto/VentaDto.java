@@ -4,11 +4,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.util.List;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class VentaDto {
     private Integer idVenta;
     private Integer idRecepcion;
@@ -16,3 +12,6 @@ public class VentaDto {
     private String estado;
     private List<DetalleVentaDto> detalles;
 }
+
+
+

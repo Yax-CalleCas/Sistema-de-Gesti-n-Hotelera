@@ -31,7 +31,8 @@ public class PersonaDto {
     @Email
     private String correo;
 
-    @NotBlank
+    private String fotoUrl;
+
     private String clave;
 
     @NotNull

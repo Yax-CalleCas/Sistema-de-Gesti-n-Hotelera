@@ -11,7 +11,8 @@ import Swal from 'sweetalert2';
   selector: 'app-producto',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
-  templateUrl: './producto.html'
+  templateUrl: './producto.html',
+  styleUrls:['./productos.css']
 })
 export class ProductoComponent implements OnInit {
   private fb = inject(FormBuilder);
@@ -23,6 +24,10 @@ export class ProductoComponent implements OnInit {
   form: FormGroup;
   isEdit = false;
   isLoading = false;
+
+  // Variables para la paginación simple de 10 registros
+  paginaActual = 1;
+  readonly elementosPorPagina = 10;
 
   constructor() {
     this.form = this.fb.group({
@@ -40,6 +45,25 @@ export class ProductoComponent implements OnInit {
     this.cargar();
   }
 
+  // Getter para obtener la porción de datos de la página actual
+  get productosPaginados(): Producto[] {
+    const inicio = (this.paginaActual - 1) * this.elementosPorPagina;
+    const fin = inicio + this.elementosPorPagina;
+    return this.productos.slice(inicio, fin);
+  }
+
+  // Getter para calcular el total de páginas
+  get totalPaginas(): number {
+    return Math.ceil(this.productos.length / this.elementosPorPagina);
+  }
+
+  // Cambiar de página validando límites básicos
+  cambiarPagina(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginas) {
+      this.paginaActual = pagina;
+    }
+  }
+
   cargar(): void {
     // Forzamos el estado de carga desde el inicio exacto del ciclo de vida
     this.isLoading = true;
@@ -55,6 +79,10 @@ export class ProductoComponent implements OnInit {
       .subscribe({
         next: (res) => {
           this.productos = res.data ?? [];
+          // Si por una eliminación la página actual se queda sin registros, retrocedemos una página
+          if (this.paginaActual > this.totalPaginas && this.totalPaginas > 0) {
+            this.paginaActual = this.totalPaginas;
+          }
         },
         error: (err) => {
           this.manejarError(err);

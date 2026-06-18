@@ -9,10 +9,12 @@ import { DashboardStatsDto } from '../../../core/models/DashboardStatsDto';
   selector: 'app-admin-dashboard',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './admin-dashboard.html'
+  templateUrl: './admin-dashboard.html',
+    styleUrls: ['./admin.css']
+
 })
 export class AdminDashboard {
-  // Observable directo para el async pipe
+
   stats$: Observable<DashboardStatsDto>;
 
   constructor(private router: Router, private reporteService: ReporteService) {

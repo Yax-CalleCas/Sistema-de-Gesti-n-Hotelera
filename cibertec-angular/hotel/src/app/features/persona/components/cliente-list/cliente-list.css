@@ -1,0 +1,21 @@
+/* Estilos unificados para elementos de la tabla y formularios */
+.btn-icon {
+  font-size: 1.25rem;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+
+.table thead th {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.025em;
+  color: #6c757d;
+}
+
+.modal-content {
+  border-radius: 1rem;
+}
+
+.form-label {
+  margin-bottom: 0.25rem;
+}

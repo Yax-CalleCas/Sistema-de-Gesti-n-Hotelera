@@ -9,51 +9,92 @@ import { Persona } from '../../../../core/models/persona.model';
   selector: 'app-cliente-list',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './cliente-list.html'
+  templateUrl: './cliente-list.html',
+  styleUrls:['./cliente-list.css']
 })
 export class ClienteListComponent implements OnInit {
   private readonly service = inject(PersonaService);
 
   personas: Persona[] = [];
-  personaSeleccionada = this.crearPersonaVacia();
+  personaSeleccionada: Persona = this.crearPersonaVacia();
   terminoBusqueda = '';
-  itemsPerPage = 10;
+  itemsPerPage = 7;
   currentPage = 1;
   guardando = false;
 
-  ngOnInit(): void { this.cargarPersonas(); }
+  ngOnInit(): void {
+    this.cargarPersonas();
+  }
 
   cargarPersonas(): void {
     this.service.listar().subscribe({
-      next: (res) => this.personas = res?.data.filter(p => p.idTipoPersona === 3) || [],
-      error: () => Swal.fire('Error', 'No se pudieron cargar los clientes', 'error')
+      next: (res) => {
+        // Filtramos por ID de tipo 3 (Clientes) y usamos el envoltorio 'data'
+        this.personas = res?.data?.filter(p => p.idTipoPersona === 3) || [];
+
+        // Ajuste preventivo por si el número de páginas disminuye tras mutaciones directas
+        if (this.currentPage > this.totalPages && this.totalPages > 0) {
+          this.currentPage = this.totalPages;
+        }
+      },
+      error: (err) => {
+        const msg = err.error?.message || 'No se pudieron cargar los clientes';
+        Swal.fire('Error', msg, 'error');
+      }
     });
   }
 
   guardar(): void {
     if (this.guardando) return;
     this.guardando = true;
+
     const esEdicion = !!this.personaSeleccionada.idPersona;
 
+    // payload incluya el campo fotoUrl
+    const payload: Persona = {
+      ...this.personaSeleccionada,
+      clave: this.personaSeleccionada.clave || (esEdicion ? '**********' : ''),
+      fotoUrl: this.personaSeleccionada.fotoUrl || ''
+    };
+
     const obs = esEdicion
-      ? this.service.actualizar(this.personaSeleccionada.idPersona!, this.personaSeleccionada)
-      : this.service.crear(this.personaSeleccionada);
+      ? this.service.actualizar(payload.idPersona!, payload)
+      : this.service.crear(payload);
 
     obs.subscribe({
-      next: () => {
-        Swal.fire('Éxito', 'Guardado correctamente', 'success');
+      next: (res) => {
+        Swal.fire('Éxito', res.message || 'Operación realizada correctamente', 'success');
         this.cerrarModal();
         this.cargarPersonas();
       },
-      error: () => Swal.fire('Error', 'Problema al guardar', 'error'),
-      complete: () => this.guardando = false
+      error: (err) => {
+        const msg = err.error?.message || 'Problema al procesar la solicitud';
+        Swal.fire('Error', msg, 'error');
+      },
+      complete: () => (this.guardando = false)
     });
   }
 
   eliminar(id: number | undefined): void {
     if (!id) return;
-    Swal.fire({ title: '¿Seguro?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar' })
-      .then(res => { if (res.isConfirmed) this.service.eliminar(id).subscribe(() => this.cargarPersonas()); });
+
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: "Esta acción eliminará permanentemente al cliente.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar'
+    }).then(res => {
+      if (res.isConfirmed) {
+        this.service.eliminar(id).subscribe({
+          next: () => {
+            Swal.fire('Eliminado', 'Cliente eliminado con éxito', 'success');
+            this.cargarPersonas();
+          },
+          error: (err) => Swal.fire('Error', err.error?.message || 'No se pudo eliminar', 'error')
+        });
+      }
+    });
   }
 
   editarCliente(p: Persona): void {
@@ -68,37 +109,85 @@ export class ClienteListComponent implements OnInit {
 
   private toggleModal(action: 'show' | 'hide'): void {
     const el = document.getElementById('modalPersona');
-    const modal = (window as any).bootstrap?.Modal.getInstance(el) || new (window as any).bootstrap.Modal(el);
-    modal[action]();
+    if (el) {
+      const modal = (window as any).bootstrap?.Modal.getInstance(el) || new (window as any).bootstrap.Modal(el);
+      modal[action]();
+    }
   }
 
   private cerrarModal = () => this.toggleModal('hide');
-  private crearPersonaVacia(): Persona { return { tipoDocumento: '', documento: '', nombre: '', apellido: '', correo: '', clave: '', idTipoPersona: 3, estado: true }; }
 
-  // Métodos necesarios para el HTML
+  private crearPersonaVacia(): Persona {
+    return {
+      tipoDocumento: '',
+      documento: '',
+      nombre: '',
+      apellido: '',
+      correo: '',
+      clave: '',
+      idTipoPersona: 3,
+      estado: true,
+      fotoUrl: ''
+    };
+  }
+
+  // --- GETTERS PARA LA VISTA ---
   trackByPersona = (_: number, p: Persona) => p.idPersona;
 
-get filteredPersonas() {
+  get filteredPersonas() {
     const busqueda = this.terminoBusqueda?.toLowerCase().trim() || '';
-
-    return this.personas.filter(p => {
-      // Usamos el operador || '' para asegurar que si el valor es null/undefined,
-      // se convierta en una cadena vacía y no rompa la ejecución.
-      const nombre = (p.nombre || '').toLowerCase();
-      const apellido = (p.apellido || '').toLowerCase();
-      const documento = (p.documento || '').toLowerCase();
-
-      return nombre.includes(busqueda) ||
-             apellido.includes(busqueda) ||
-             documento.includes(busqueda);
-    });
+    return this.personas.filter(p =>
+      (p.nombre?.toLowerCase().includes(busqueda)) ||
+      (p.apellido?.toLowerCase().includes(busqueda)) ||
+      (p.documento?.toLowerCase().includes(busqueda))
+    );
   }
 
   get paginatedPersonas() {
+    // Si la búsqueda reduce las páginas y deja desfasada la página actual, la reiniciamos a la primera
+    if (this.currentPage > this.totalPages && this.totalPages > 0) {
+      this.currentPage = 1;
+    }
     const start = (this.currentPage - 1) * this.itemsPerPage;
     return this.filteredPersonas.slice(start, start + this.itemsPerPage);
   }
 
-  get totalPages() { return Math.ceil(this.filteredPersonas.length / this.itemsPerPage); }
-  changePage(p: number) { if (p >= 1 && p <= this.totalPages) this.currentPage = p; }
+  get totalPages() {
+    return Math.ceil(this.filteredPersonas.length / this.itemsPerPage);
+  }
+
+  onImgError(event: any): void {
+    event.target.src = 'https://goo.su/JYRdVM5';
+  }
+
+  cambiarEstado(p: Persona): void {
+    const nuevoEstado = !p.estado;
+
+    const personaActualizada: Persona = {
+        ...p,
+        estado: nuevoEstado,
+        clave: p.clave && p.clave.trim() !== '' ? p.clave : '**********'
+    };
+
+    this.service.actualizar(personaActualizada.idPersona!, personaActualizada).subscribe({
+        next: () => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Estado actualizado',
+                text: `El cliente ahora está ${nuevoEstado ? 'activo' : 'bloqueado'}.`,
+                timer: 1500,
+                showConfirmButton: false
+            });
+            this.cargarPersonas();
+        },
+        error: (err) => {
+            console.error("Error completo del servidor:", err.error);
+            Swal.fire('Error', err.error?.message || 'No se pudo cambiar el estado', 'error');
+        }
+    });
+  }
+
+  changePage(p: number) {
+    if (p >= 1 && p <= this.totalPages) this.currentPage = p;
+  }
 }

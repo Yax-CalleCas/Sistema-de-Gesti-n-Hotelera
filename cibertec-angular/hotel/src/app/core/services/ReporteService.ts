@@ -10,24 +10,46 @@ interface ApiResponse<T> { success: boolean; data: T; message?: string; }
 @Injectable({ providedIn: 'root' })
 export class ReporteService {
   private readonly API_URL = 'http://localhost:8081/api/reportes';
-  private readonly TIMEOUT_MS = 10000;
+  private readonly TIMEOUT_MS = 15000; // Aumentado ligeramente para reportes complejos
 
   constructor(private http: HttpClient) { }
 
   private request<T>(endpoint: string, params: HttpParams = new HttpParams()): Observable<T> {
     return this.http.get<ApiResponse<T>>(`${this.API_URL}/${endpoint}`, { params }).pipe(
       timeout(this.TIMEOUT_MS),
-      map(res => res.data),
+      map(res => {
+        if (!res.success) throw new Error(res.message || 'Error en la respuesta del servidor');
+        return res.data;
+      }),
       catchError(err => {
-        console.error('Error:', err);
-        return throwError(() => new Error('Error al conectar con el servidor.'));
+        console.error('ReporteService Error:', err);
+        return throwError(() => new Error(err.message || 'Error de conexión'));
       })
     );
   }
 
-  getProductosBajoStock(limite: number) { return this.request<ReporteProductoDto[]>('productos-bajo-stock', new HttpParams().set('limite', limite.toString())); }
-  getVentas(inicio: string, fin: string) { return this.request<ReporteVentaDto[]>('ventas', new HttpParams().set('inicio', inicio).set('fin', fin)); }
-  getOcupacion(inicio: string, fin: string) { return this.request<ReporteHabitacionDto[]>('ocupacion', new HttpParams().set('inicio', inicio).set('fin', fin)); }
-  getCobros(inicio: string, fin: string) { return this.request<ReporteCobroDto[]>('cobros', new HttpParams().set('inicio', inicio).set('fin', fin)); }
-  getDashboardStats() { return this.request<DashboardStatsDto>('dashboard'); }
+  getProductosBajoStock(limite: number): Observable<ReporteProductoDto[]> {
+    return this.request<ReporteProductoDto[]>('productos-bajo-stock', new HttpParams().set('limite', limite.toString()));
+  }
+
+  getVentas(inicio: string, fin: string): Observable<ReporteVentaDto[]> {
+    return this.request<ReporteVentaDto[]>('ventas', this.createDateParams(inicio, fin));
+  }
+
+  getOcupacion(inicio: string, fin: string): Observable<ReporteHabitacionDto[]> {
+    return this.request<ReporteHabitacionDto[]>('ocupacion', this.createDateParams(inicio, fin));
+  }
+
+  getCobros(inicio: string, fin: string): Observable<ReporteCobroDto[]> {
+    return this.request<ReporteCobroDto[]>('cobros', this.createDateParams(inicio, fin));
+  }
+
+  getDashboardStats(): Observable<DashboardStatsDto> {
+    return this.request<DashboardStatsDto>('dashboard');
+  }
+
+  // Helper para estandarizar parámetros de fecha
+  private createDateParams(inicio: string, fin: string): HttpParams {
+    return new HttpParams().set('inicio', inicio).set('fin', fin);
+  }
 }

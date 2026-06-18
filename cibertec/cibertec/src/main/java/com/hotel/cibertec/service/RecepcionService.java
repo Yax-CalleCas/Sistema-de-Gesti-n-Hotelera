@@ -6,13 +6,12 @@ import java.util.List;
 
 public interface RecepcionService {
     List<RecepcionDto> listarTodos();
-    RecepcionDto buscarPorId(Integer id);
+   ;
     RecepcionDto buscarActivaPorHabitacion(Integer idHabitacion);
-
+    RecepcionDto buscarPorId(Integer id);
     RecepcionDto guardar(RecepcionDto dto);
     RecepcionDto actualizar(Integer id, RecepcionDto dto);
     void eliminar(Integer id);
 
-    // 🚀 AGREGADO: Método para procesar la salida (Check-out)
     Boolean procesarSalida(Integer idRecepcion, Integer idHabitacion, BigDecimal penalidad, BigDecimal total);
 }

@@ -9,6 +9,6 @@ import lombok.*;
 @Builder
 public class ReporteHabitacionDto {
     private String numeroHabitacion;
-    private String categoria;
+    private String descripcionCategoria;
     private Long vecesAlquilada;
 }

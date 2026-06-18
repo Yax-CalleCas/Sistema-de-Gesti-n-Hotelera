@@ -22,6 +22,8 @@ public class DetalleVenta {
     @JoinColumn(name = "idventa")
     private Venta venta;
 
+
+
     @ManyToOne
     @JoinColumn(name = "idproducto")
     private Producto producto;
@@ -33,6 +35,7 @@ public class DetalleVenta {
     @Column(name = "preciounitario", precision = 10, scale = 2)
     private BigDecimal precioUnitario;
 
+
     @Column(name = "subtotal", precision = 10, scale = 2)
-    private BigDecimal subtotal;
+    private BigDecimal subTotal;
 }

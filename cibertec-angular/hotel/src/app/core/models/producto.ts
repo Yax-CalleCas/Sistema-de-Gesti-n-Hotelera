@@ -6,6 +6,5 @@ export interface Producto {
   cantidad?: number;
   estado?: boolean;
   fechaCreacion?: string;
-  // Agregamos el campo de imagen
   imagenUrl?: string;
 }

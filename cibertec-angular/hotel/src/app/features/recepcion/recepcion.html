@@ -6,13 +6,13 @@
 
     <div class="d-flex align-items-center gap-2">
       <span class="text-muted small">Filtrar por piso:</span>
-  <select class="form-select form-select-sm"
-        aria-label="Filtrar habitaciones por piso"
-        [ngModel]="idPisoSeleccionado()"
-        (ngModelChange)="idPisoSeleccionado.set($event)">
-  <option [ngValue]="0">Todos los pisos</option>
-  <option *ngFor="let p of pisos()" [ngValue]="p.idPiso">{{p.descripcion}}</option>
-</select>
+      <select class="form-select form-select-sm"
+              aria-label="Filtrar habitaciones por piso"
+              [ngModel]="idPisoSeleccionado()"
+              (ngModelChange)="idPisoSeleccionado.set($event)">
+        <option [ngValue]="0">Todos los pisos</option>
+        <option *ngFor="let p of pisos()" [ngValue]="p.idPiso">{{p.descripcion}}</option>
+      </select>
     </div>
   </div>
 
@@ -37,20 +37,21 @@
               'bg-danger-subtle text-danger': h.idEstadoHabitacion == 2,
               'bg-warning-subtle text-warning': h.idEstadoHabitacion == 3
             }">
-              {{ h.estadoDescripcion }}
+              {{ getEstNombre(h.idEstadoHabitacion) }}
             </span>
           </div>
 
           <p class="text-muted small mb-1">
-            <i class="bi bi-tag me-1"></i> {{ h.categoriaNombre }}
+            <i class="bi bi-tag me-1"></i> {{ getCatNombre(h.idCategoria) }}
           </p>
+
           <p class="text-muted small mb-3">
             <i class="bi bi-building me-1"></i> Piso: {{ h.idPiso }}
           </p>
 
           <button class="btn btn-sm w-100"
                   [ngClass]="h.idEstadoHabitacion == 1 ? 'btn-primary' : 'btn-outline-primary'"
-                  (click)="abrirDetalle(h.idHabitacion)">
+                  (click)="abrirDetalle(h.idHabitacion!)">
             <i class="bi" [ngClass]="h.idEstadoHabitacion == 1 ? 'bi-plus-circle' : 'bi-eye'"></i>
             {{ h.idEstadoHabitacion == 1 ? 'Registrar Ingreso' : 'Ver Detalle' }}
           </button>

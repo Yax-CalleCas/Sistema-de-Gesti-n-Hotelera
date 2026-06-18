@@ -5,9 +5,9 @@ export interface Persona {
   nombre: string;
   apellido: string;
   correo: string;
-  clave: string;
+  clave?: string;
   idTipoPersona: number;
-  estado?: boolean;
+  estado: boolean;
+  fotoUrl?: string;
   fechaCreacion?: string;
 }
-

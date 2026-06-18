@@ -17,6 +17,8 @@ import { Piso } from '../../core/models/piso';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './salida-habitacion.html',
+    styleUrls:['./salida-habitacion.css']
+
 })
 export class SalidaHabitacion implements OnInit {
   private readonly habService = inject(HabitacionService);
@@ -75,11 +77,15 @@ export class SalidaHabitacion implements OnInit {
     });
   }
 
-  procesarSalidaVenta(h: Habitacion): void {
-    if (h.idHabitacion) {
-      this.router.navigate(['/admin/procesarsalida', h.idHabitacion]);
-    }
+  trackByHabitacion(index: number, h: Habitacion): number {
+    return h.idHabitacion!;
   }
+
+  procesarSalidaVenta(h: Habitacion): void {
+    if (!h.idHabitacion) return;
+    this.router.navigate(['/admin/procesarsalida', h.idHabitacion]);
+  }
+
 
   private manejarExpiracionSesion(): void {
     Swal.fire('Sesión Caducada', 'Inicia sesión nuevamente.', 'error').then(() => this.router.navigate(['/login']));

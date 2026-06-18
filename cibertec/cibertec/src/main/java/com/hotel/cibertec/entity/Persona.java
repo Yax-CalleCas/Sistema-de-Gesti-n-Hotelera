@@ -38,8 +38,12 @@ public class Persona {
     @Column(name = "clave")
     private String clave;
 
-    @ManyToOne
-    @JoinColumn(name = "idtipopersona") // Debe ser igual al nombre de la FK en tu tabla
+    @Column(name = "foto_url")
+    private String fotoUrl;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
+    @JoinColumn(name = "idtipopersona")
     private TipoPersona tipoPersona;
 
     @Column(name = "estado")
@@ -51,4 +55,13 @@ public class Persona {
     @JsonIgnore
     @OneToMany(mappedBy = "cliente")
     private List<Recepcion> recepciones;
+
+    //metodo para que personas se asigne fecha
+    // En tu clase Persona.java
+    @PrePersist
+    protected void onCreate() {
+        if (this.fechaCreacion == null) {
+            this.fechaCreacion = LocalDateTime.now();
+        }
+    }
 }

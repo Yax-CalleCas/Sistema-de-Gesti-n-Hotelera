@@ -1,24 +1,26 @@
 <div class="container-fluid py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="text-primary fw-bold"><i class="bi bi-people-fill me-2"></i> Lista de Clientes</h3>
-    <button class="btn btn-success" (click)="nuevoCliente()">
+    <h3 class="text-primary fw-bold m-0"><i class="bi bi-people-fill me-2"></i> Lista de Clientes</h3>
+    <button class="btn btn-success px-4" (click)="nuevoCliente()">
       <i class="bi bi-plus-circle me-1"></i> Crear Nuevo Cliente
     </button>
   </div>
 
-  <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body row g-3">
-      <div class="col-md-2">
-        <label class="small text-muted">Registros</label>
-        <select class="form-select form-select-sm" [(ngModel)]="itemsPerPage" (change)="currentPage=1">
-          <option value="10">10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-        </select>
-      </div>
-      <div class="col-md-10">
-        <label class="small text-muted">Buscar</label>
-        <input class="form-control" [(ngModel)]="terminoBusqueda" (input)="currentPage=1" placeholder="Filtrar por nombre, apellido o documento...">
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="small fw-bold text-muted mb-1">Registros</label>
+          <select class="form-select" [(ngModel)]="itemsPerPage" (change)="currentPage=1">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <div class="col-md-10">
+          <label class="small fw-bold text-muted mb-1">Buscar cliente</label>
+          <input class="form-control" [(ngModel)]="terminoBusqueda" (input)="currentPage=1" placeholder="Filtrar por nombre, apellido o documento...">
+        </div>
       </div>
     </div>
   </div>
@@ -28,6 +30,7 @@
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
+            <th class="ps-4">Foto</th>
             <th>Tipo Doc.</th>
             <th>Documento</th>
             <th>Nombre</th>
@@ -38,36 +41,47 @@
         </thead>
         <tbody>
           <tr *ngFor="let p of paginatedPersonas; trackBy: trackByPersona">
-            <td><span class="badge bg-secondary">{{ p.tipoDocumento }}</span></td>
+            <td class="ps-4">
+              <img [src]="p.fotoUrl || 'assets/default-avatar.png'" alt="Foto" width="40" height="40" class="rounded-circle border" (error)="onImgError($event)">
+            </td>
+            <td><span class="badge bg-light text-dark border">{{ p.tipoDocumento }}</span></td>
             <td>{{ p.documento }}</td>
             <td>{{ p.nombre }}</td>
             <td>{{ p.apellido }}</td>
             <td>{{ p.correo }}</td>
             <td class="text-center">
-              <button class="btn btn-sm btn-outline-warning me-1" (click)="editarCliente(p)" type="button">
+              <button class="btn btn-sm btn-icon" [class.text-success]="p.estado" [class.text-secondary]="!p.estado" (click)="cambiarEstado(p)" title="Cambiar estado">
+                <i class="bi" [class.bi-toggle-on]="p.estado" [class.bi-toggle-off]="!p.estado"></i>
+              </button>
+              <button class="btn btn-sm btn-icon text-warning" (click)="editarCliente(p)" title="Editar">
                 <i class="bi bi-pencil-fill"></i>
               </button>
-              <button class="btn btn-sm btn-outline-danger" (click)="eliminar(p.idPersona)" type="button">
+              <button class="btn btn-sm btn-icon text-danger" (click)="eliminar(p.idPersona)" title="Eliminar">
                 <i class="bi bi-trash-fill"></i>
               </button>
             </td>
-          </tr>
-          <tr *ngIf="filteredPersonas.length === 0">
-            <td colspan="6" class="text-center text-muted py-4">No se encontraron registros.</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center py-3" *ngIf="totalPages > 1">
-      <span class="small text-muted">Mostrando página {{ currentPage }} de {{ totalPages }}</span>
-      <nav>
+    <div class="card-footer bg-white border-top py-3" *ngIf="totalPages > 1">
+      <nav aria-label="Navegación de clientes" class="d-flex justify-content-center">
         <ul class="pagination pagination-sm mb-0">
           <li class="page-item" [class.disabled]="currentPage === 1">
-            <button class="page-link" type="button" (click)="changePage(currentPage - 1)">Anterior</button>
+            <button class="page-link" (click)="changePage(currentPage - 1)" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </button>
           </li>
+
+          <li class="page-item" *ngFor="let item of [].constructor(totalPages); let i = index" [class.active]="currentPage === (i + 1)">
+            <button class="page-link" (click)="changePage(i + 1)">{{ i + 1 }}</button>
+          </li>
+
           <li class="page-item" [class.disabled]="currentPage === totalPages">
-            <button class="page-link" type="button" (click)="changePage(currentPage + 1)">Siguiente</button>
+            <button class="page-link" (click)="changePage(currentPage + 1)" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </button>
           </li>
         </ul>
       </nav>
@@ -75,18 +89,20 @@
   </div>
 </div>
 
-<div class="modal fade" id="modalPersona" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalPersona" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title">{{ personaSeleccionada.idPersona ? 'Editar' : 'Registrar' }} Cliente</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white py-3">
+        <h5 class="modal-title fw-bold">
+          <i class="bi" [class.bi-pencil-square]="personaSeleccionada.idPersona" [class.bi-person-plus]="!personaSeleccionada.idPersona"></i>
+          {{ personaSeleccionada.idPersona ? 'Editar Cliente' : 'Registrar Cliente' }}
+        </h5>
       </div>
-      <div class="modal-body">
+      <div class="modal-body p-4">
         <form #f="ngForm" (ngSubmit)="f.valid && guardar()" novalidate>
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label small fw-bold">Tipo Doc</label>
+              <label class="form-label small fw-bold text-muted">Tipo Documento</label>
               <select [(ngModel)]="personaSeleccionada.tipoDocumento" name="tipo" class="form-select" required>
                 <option value="" disabled>Seleccione...</option>
                 <option value="DNI">DNI</option>
@@ -95,29 +111,35 @@
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label small fw-bold">Documento</label>
+              <label class="form-label small fw-bold text-muted">Número Documento</label>
               <input [(ngModel)]="personaSeleccionada.documento" name="doc" class="form-control" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label small fw-bold">Nombre</label>
+              <label class="form-label small fw-bold text-muted">Nombre</label>
               <input [(ngModel)]="personaSeleccionada.nombre" name="nombre" class="form-control" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label small fw-bold">Apellido</label>
+              <label class="form-label small fw-bold text-muted">Apellido</label>
               <input [(ngModel)]="personaSeleccionada.apellido" name="apellido" class="form-control" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label small fw-bold">Correo</label>
+              <label class="form-label small fw-bold text-muted">Correo Electrónico</label>
               <input type="email" [(ngModel)]="personaSeleccionada.correo" name="correo" class="form-control" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label small fw-bold">Contraseña</label>
-              <input type="password" [(ngModel)]="personaSeleccionada.clave" name="clave" class="form-control" [required]="!personaSeleccionada.idPersona">
+              <label class="form-label small fw-bold text-muted">URL de Foto</label>
+              <input [(ngModel)]="personaSeleccionada.fotoUrl" name="foto" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label small fw-bold text-muted">Contraseña</label>
+              <input type="password" [(ngModel)]="personaSeleccionada.clave" name="clave" class="form-control"
+                     [placeholder]="personaSeleccionada.idPersona ? 'Dejar en blanco para mantener' : '**********'"
+                     [required]="!personaSeleccionada.idPersona">
             </div>
           </div>
-          <div class="modal-footer border-0 mt-4">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            <button type="submit" class="btn btn-success" [disabled]="guardando">
+          <div class="modal-footer border-0 px-0 pb-0 mt-3">
+            <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cerrar</button>
+            <button type="submit" class="btn btn-success px-4" [disabled]="guardando || f.invalid">
               {{ guardando ? 'Procesando...' : 'Guardar Datos' }}
             </button>
           </div>

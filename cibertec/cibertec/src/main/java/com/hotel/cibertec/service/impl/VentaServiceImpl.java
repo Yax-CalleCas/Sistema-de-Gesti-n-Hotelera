@@ -2,6 +2,7 @@ package com.hotel.cibertec.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hotel.cibertec.dto.DetalleVentaDto;
 import com.hotel.cibertec.dto.VentaDto;
 import com.hotel.cibertec.entity.Venta;
 import com.hotel.cibertec.repository.VentaRepository;
@@ -9,10 +10,10 @@ import com.hotel.cibertec.service.VentaService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -47,20 +48,22 @@ public class VentaServiceImpl implements VentaService {
             throw new RuntimeException("Datos de venta incompletos");
         }
 
+        String estadoFinal = (dto.getEstado() != null && !dto.getEstado().isEmpty()) ? dto.getEstado() : "PENDIENTE";
+
         try {
             String detallesJson = objectMapper.writeValueAsString(dto.getDetalles());
+            String sql = "SELECT sp_RegistrarVenta(:p_IdRecepcion, :p_Estado, :p_Detalles)";
 
-            // Llamada al repositorio simplificado
-            Boolean exito = repository.registrarVenta(
-                    dto.getIdRecepcion(),
-                    dto.getEstado() != null ? dto.getEstado() : "PAGADO",
-                    detallesJson
-            );
+            Boolean exito = (Boolean) entityManager.createNativeQuery(sql)
+                    .setParameter("p_IdRecepcion", dto.getIdRecepcion())
+                    .setParameter("p_Estado", estadoFinal)
+                    .setParameter("p_Detalles", detallesJson)
+                    .getSingleResult();
 
             if (Boolean.TRUE.equals(exito)) {
                 return dto;
             } else {
-                throw new RuntimeException("Error al procesar la venta en BD");
+                throw new RuntimeException("Error al procesar la venta en BD: El procedimiento retornó falso");
             }
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Error al procesar JSON", e);
@@ -72,16 +75,8 @@ public class VentaServiceImpl implements VentaService {
     @Override
     @Transactional(readOnly = true)
     public List<VentaDto> listarPorRecepcion(Integer idRecepcion) {
-        // Si el parámetro llega nulo desde el cliente evitamos enviar la petición a la BD
-        if (idRecepcion == null) {
-            return Collections.emptyList();
-        }
-
-        // Llamamos al método nativo seguro
-        return repository.findByRecepcionId(idRecepcion)
-                .stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+        if (idRecepcion == null) return Collections.emptyList();
+        return repository.findByRecepcionId(idRecepcion).stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Override
@@ -101,12 +96,24 @@ public class VentaServiceImpl implements VentaService {
     }
 
     private VentaDto toDto(Venta venta) {
+        List<DetalleVentaDto> detallesDto = venta.getDetalleVentas().stream().map(d ->
+                DetalleVentaDto.builder()
+                        .idDetalleVenta(d.getIdDetalleVenta())
+                        .idVenta(venta.getIdVenta())
+                        .idProducto(d.getProducto() != null ? d.getProducto().getIdProducto() : null)
+                        .cantidad(d.getCantidad())
+                        .precioUnitario(d.getPrecioUnitario())
+                        // Cálculo manual seguro:
+                        .subTotal(d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad())))
+                        .build()
+        ).collect(Collectors.toList());
+
         return VentaDto.builder()
                 .idVenta(venta.getIdVenta())
                 .idRecepcion(venta.getRecepcion() != null ? venta.getRecepcion().getIdRecepcion() : null)
                 .total(venta.getTotal())
                 .estado(venta.getEstado())
-                .detalles(Collections.emptyList())
+                .detalles(detallesDto)
                 .build();
     }
 }

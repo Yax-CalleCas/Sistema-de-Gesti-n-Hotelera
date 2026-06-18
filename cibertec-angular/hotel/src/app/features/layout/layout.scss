@@ -1,44 +1,61 @@
+// --- Variables sugeridas para orden ---
+$primary-gradient: linear-gradient(180deg, #1a524e 0%, #32c777 100%);
+$active-bg: rgba(35, 4, 4, 0.2);
+$text-light: #180303;
+
 .sidebar {
   width: 280px;
-  background: linear-gradient(180deg, #87b001 0%, #076806 100%);
-  transition: all 0.25s ease;
-  box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+  background: $primary-gradient;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); // Curva más suave
+  box-shadow: 4px 0 15px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
 }
 
 .nav-link {
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  transition: background 0.3s ease;
+  padding: 0.8rem 1.2rem;
+  margin: 0 0.5rem;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9) !important;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+
   &:hover {
     background: rgba(255, 255, 255, 0.15);
+    transform: translateX(5px); // Pequeño efecto de interacción
   }
 }
 
 .nav-link.active {
-  background: rgba(255, 255, 255, 0.25);
+  background: $active-bg !important;
   font-weight: 600;
   border-left: 4px solid #64CAD1;
+  color: $text-light !important;
 }
 
 main {
   height: 100vh;
   overflow-y: auto;
+  background-color: #f8f9fa; // Fondo neutro profesional
 }
 
 footer {
-  background: linear-gradient(180deg, #d5e0b4 0%, #cde6cc 100%);
-  color: #2e2b2b;
-  padding: 1rem 0;
+  background: #ffffff;
+  border-top: 1px solid #e9ecef;
+  color: #6c757d; // Gris más profesional para texto de footer
+  padding: 1.5rem 0;
   text-align: center;
   width: 100%;
-}
 
-footer .fw-bold {
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-}
+  .fw-bold {
+    color: #333;
+    font-size: 0.9rem;
+    margin-bottom: 0.2rem;
+  }
 
-footer small {
-  font-size: 0.875rem;
-  opacity: 0.9; /* Suaviza el texto secundario */
+  small {
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+  }
 }
