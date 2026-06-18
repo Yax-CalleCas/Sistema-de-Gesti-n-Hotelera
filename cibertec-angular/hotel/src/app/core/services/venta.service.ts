@@ -32,7 +32,7 @@ buscarPorRecepcion(idRecepcion: number): Observable<ApiResponse<Venta[]>> {
   return this.http.get<ApiResponse<Venta[]>>(`${this.baseUrl}/recepcion/${idRecepcion}`);
 }
 
-  // Registrar una nueva venta (Carrito de consumos)
+  // Registrar una nueva venta
   guardar(venta: any): Observable<ApiResponse<Venta>> {
     return this.http.post<ApiResponse<Venta>>(`${this.baseUrl}`, venta);
   }

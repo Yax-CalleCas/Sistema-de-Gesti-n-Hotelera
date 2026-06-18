@@ -31,40 +31,79 @@ public class DataInitializer implements CommandLineRunner {
         crearTipoPersonaSiNoExiste(3, "Cliente");
 
         // 2. Cargar usuarios de forma segura (por correo)
-        crearUsuarioSiNoExiste("4545453", "Naomi", "Konoe", "Konoe@gmail.com", "123123", 1);
-        crearUsuarioSiNoExiste("4353434", "Mizuki", "Hayashi", "Mizuki@gmail.com", "456456", 2);
+        crearUsuarioSiNoExiste(
+                "4545453",
+                "Yaxon",
+                "Castillo",
+                "yaxoncalle@gmail.com",
+                "123123",
+                1,
+                "DNI",
+                "https://acortar.link/NlkrTo"
+        );
+
+        crearUsuarioSiNoExiste(
+                "4353434",
+                "Paul",
+                "Calle",
+                "Trabajadorpaul@gmail.com",
+                "456456",
+                2,
+                "DNI",
+                "https://acortar.link/RdFh25"
+        );
 
         System.out.println("--- PROCESO DE CARGA FINALIZADO ---");
     }
 
     private void crearTipoPersonaSiNoExiste(Integer id, String desc) {
         if (tipoPersonaRepository.findById(id).isEmpty()) {
-            tipoPersonaRepository.save(TipoPersona.builder()
-                    .idTipoPersona(id)
-                    .descripcion(desc)
-                    .estado(true)
-                    .fechaCreacion(LocalDateTime.now())
-                    .build());
+            tipoPersonaRepository.save(
+                    TipoPersona.builder()
+                            .idTipoPersona(id)
+                            .descripcion(desc)
+                            .estado(true)
+                            .fechaCreacion(LocalDateTime.now())
+                            .build()
+            );
+
             System.out.println("Tipo creado: " + desc);
         }
     }
 
-    private void crearUsuarioSiNoExiste(String doc, String nom, String ape, String correo, String clave, Integer idTipo) {
-        if (personaRepository.findByCorreo(correo).isEmpty()) {
-            TipoPersona tipo = tipoPersonaRepository.findById(idTipo)
-                    .orElseThrow(() -> new RuntimeException("Tipo de persona no encontrado: " + idTipo));
+    private void crearUsuarioSiNoExiste(
+            String doc,
+            String nom,
+            String ape,
+            String correo,
+            String clave,
+            Integer idTipo,
+            String tipoDocumento,
+            String fotoUrl) {
 
-            personaRepository.save(Persona.builder()
-                    .documento(doc)
-                    .nombre(nom)
-                    .apellido(ape)
-                    .correo(correo)
-                    .clave(passwordEncoder.encode(clave))
-                    .tipoPersona(tipo)
-                    .estado(true)
-                    .fechaCreacion(LocalDateTime.now())
-                    .build());
+        if (personaRepository.findByCorreo(correo).isEmpty()) {
+
+            TipoPersona tipo = tipoPersonaRepository.findById(idTipo)
+                    .orElseThrow(() ->
+                            new RuntimeException("Tipo de persona no encontrado: " + idTipo));
+
+            personaRepository.save(
+                    Persona.builder()
+                            .tipoDocumento(tipoDocumento)
+                            .documento(doc)
+                            .nombre(nom)
+                            .apellido(ape)
+                            .correo(correo)
+                            .clave(passwordEncoder.encode(clave))
+                            .fotoUrl(fotoUrl)
+                            .tipoPersona(tipo)
+                            .estado(true)
+                            .fechaCreacion(LocalDateTime.now())
+                            .build()
+            );
+
             System.out.println("Usuario creado: " + correo);
+
         } else {
             System.out.println("Usuario ya existente, saltando: " + correo);
         }
