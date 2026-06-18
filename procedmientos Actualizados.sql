@@ -421,7 +421,7 @@ $$;
 
 -- reportes del sistema ----------------------------------
 
--- Ejecuta esto antes de recrear cada función
+-- borrar datos
 DROP FUNCTION IF EXISTS fn_Reporte_ProductosBajoStock(INT);
 DROP FUNCTION IF EXISTS fn_Reporte_Ventas(TIMESTAMP, TIMESTAMP);
 DROP FUNCTION IF EXISTS fn_Reporte_Ocupacion(TIMESTAMP, TIMESTAMP);
@@ -534,10 +534,6 @@ SELECT idrecepcion, precioinicial, adelanto, preciorestante
 FROM RECEPCION 
 WHERE idhabitacion = (SELECT idhabitacion FROM HABITACION WHERE numero = '43');
 
-
--- Ejecuta esto y mira si la columna 'estado' tiene los valores correctos
-SELECT * FROM fn_Reporte_Ventas('2026-06-16 00:00:00', '2026-06-17 23:59:59');
-select * from venta;
 
 
 select * from persona;
