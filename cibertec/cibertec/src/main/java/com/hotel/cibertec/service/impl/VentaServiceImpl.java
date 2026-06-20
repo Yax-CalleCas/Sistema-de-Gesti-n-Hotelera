@@ -52,18 +52,22 @@ public class VentaServiceImpl implements VentaService {
 
         try {
             String detallesJson = objectMapper.writeValueAsString(dto.getDetalles());
+            // Nota: Asegúrate de que el SP retorne el ID numérico en la última línea (SELECT ID...)
             String sql = "SELECT sp_RegistrarVenta(:p_IdRecepcion, :p_Estado, :p_Detalles)";
 
-            Boolean exito = (Boolean) entityManager.createNativeQuery(sql)
+            // Se espera que el SP devuelva el ID de la venta creada
+            Number idGenerado = (Number) entityManager.createNativeQuery(sql)
                     .setParameter("p_IdRecepcion", dto.getIdRecepcion())
                     .setParameter("p_Estado", estadoFinal)
                     .setParameter("p_Detalles", detallesJson)
                     .getSingleResult();
 
-            if (Boolean.TRUE.equals(exito)) {
+            if (idGenerado != null && idGenerado.intValue() > 0) {
+                // Asignamos el ID real generado por la base de datos al DTO
+                dto.setIdVenta(idGenerado.intValue());
                 return dto;
             } else {
-                throw new RuntimeException("Error al procesar la venta en BD: El procedimiento retornó falso");
+                throw new RuntimeException("Error en BD: El procedimiento no retornó un ID válido");
             }
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Error al procesar JSON", e);
@@ -95,16 +99,21 @@ public class VentaServiceImpl implements VentaService {
         repository.deleteById(id);
     }
 
+    // Dentro de tu VentaServiceImpl.java
     private VentaDto toDto(Venta venta) {
         List<DetalleVentaDto> detallesDto = venta.getDetalleVentas().stream().map(d ->
                 DetalleVentaDto.builder()
                         .idDetalleVenta(d.getIdDetalleVenta())
                         .idVenta(venta.getIdVenta())
                         .idProducto(d.getProducto() != null ? d.getProducto().getIdProducto() : null)
+
+                        // --- ESTA LÍNEA ES LA QUE CORRIGE EL NOMBRE EN LA APP ---
+                        .nombreProducto(d.getProducto() != null ? d.getProducto().getNombre() : "Sin Nombre")
+                        // --------------------------------------------------------
+
                         .cantidad(d.getCantidad())
                         .precioUnitario(d.getPrecioUnitario())
-                        // Cálculo manual seguro:
-                        .subTotal(d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad())))
+                        .subTotal(d.getSubTotal()) // Asegúrate de usar el valor de la entidad
                         .build()
         ).collect(Collectors.toList());
 

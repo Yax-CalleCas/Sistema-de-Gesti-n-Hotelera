@@ -3,6 +3,7 @@
 
 
 
+
 CREATE OR REPLACE PROCEDURE sp_RegistrarCategoria(
 IN p_Descripcion VARCHAR,
 OUT Resultado BOOLEAN
@@ -360,12 +361,13 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
+DROP FUNCTION sp_RegistrarVenta(INT, VARCHAR, TEXT);
 CREATE OR REPLACE FUNCTION sp_RegistrarVenta(
     p_IdRecepcion INT,
     p_Estado VARCHAR,
     p_Detalles TEXT
 )
-RETURNS BOOLEAN
+RETURNS INT -- CAMBIO: De BOOLEAN a INT
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -411,7 +413,7 @@ BEGIN
     -- 4. Finalizar
     UPDATE VENTA SET Total = v_TotalVenta WHERE IdVenta = v_IdVenta;
 
-    RETURN TRUE;
+    RETURN v_IdVenta; -- CAMBIO: Retornamos el ID, no un booleano
 EXCEPTION WHEN OTHERS THEN
     RAISE;
 END;

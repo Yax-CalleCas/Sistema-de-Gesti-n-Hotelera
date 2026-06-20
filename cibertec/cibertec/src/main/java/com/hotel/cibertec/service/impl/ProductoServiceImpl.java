@@ -111,11 +111,13 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     @Transactional
     public void eliminar(Integer id) {
-        Producto p = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Registro no encontrado"));
+        // 1. Verificamos si existe antes de intentar borrar
+        if (repository.existsById(id)) {
 
-        p.setEstado(false);
-        repository.save(p);
+            repository.deleteById(id);
+        } else {
+            throw new RuntimeException("Registro no encontrado");
+        }
     }
 
     private ProductoDto toDto(Producto e) {
