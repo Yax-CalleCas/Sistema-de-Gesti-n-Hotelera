@@ -30,8 +30,11 @@ public class PersonaController {
         return ResponseEntity.ok(ApiResponse.success(service.guardar(dto)));
     }
 
+
     @PutMapping("/actualizar/{id}")
     public ResponseEntity<ApiResponse<?>> actualizar(@PathVariable Integer id, @Valid @RequestBody PersonaDto dto) {
+
+        System.out.println("Actualizando ID: " + id + " con datos: " + dto.toString());
         return ResponseEntity.ok(ApiResponse.success(service.actualizar(id, dto)));
     }
 

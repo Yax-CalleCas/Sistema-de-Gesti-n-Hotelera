@@ -17,19 +17,23 @@ public interface HabitacionRepository extends JpaRepository<Habitacion, Integer>
 
     Optional<Habitacion> findByNumero(String numero);
 
-    @Query("SELECT h FROM Habitacion h " +
-            "LEFT JOIN FETCH h.estadoHabitacion " +
-            "LEFT JOIN FETCH h.piso " +
-            "LEFT JOIN FETCH h.categoria " +
-            "LEFT JOIN FETCH h.imagenes")
-    List<Habitacion> findAllWithDetails();
 
-    // para el ID
+
     @Query("SELECT h FROM Habitacion h " +
             "LEFT JOIN FETCH h.estadoHabitacion " +
             "LEFT JOIN FETCH h.piso " +
             "LEFT JOIN FETCH h.categoria " +
             "LEFT JOIN FETCH h.imagenes " +
-            "WHERE h.idHabitacion = :id")
+            "WHERE h.idHabitacion = :id " +
+            "AND h.estado = true")
     Optional<Habitacion> findByIdWithDetails(@Param("id") Integer id);
+
+
+    @Query("SELECT h FROM Habitacion h " +
+            "LEFT JOIN FETCH h.estadoHabitacion " +
+            "LEFT JOIN FETCH h.piso " +
+            "LEFT JOIN FETCH h.categoria " +
+            "LEFT JOIN FETCH h.imagenes " +
+            "WHERE h.estado = true")
+    List<Habitacion> findAllWithDetails();
 }

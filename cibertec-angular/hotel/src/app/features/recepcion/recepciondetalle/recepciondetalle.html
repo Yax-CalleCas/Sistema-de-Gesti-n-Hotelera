@@ -81,11 +81,8 @@
               </div>
             </div>
 
-            <div class="row">
-  <div class="col-md-6 mb-3">
-    <label class="form-label">Fecha Entrada:</label>
-    <input type="date" class="form-control" [(ngModel)]="recepcion().fechaEntrada" (change)="calcularTotal()" name="fechaEntrada" required [readonly]="esOcupada()">
-  </div>
+    <div class="row">
+
   <div class="col-md-6 mb-3">
     <label class="form-label">Fecha Salida:</label>
     <input type="date" class="form-control" [(ngModel)]="recepcion().fechaSalida" (change)="calcularTotal()" name="fechaSalida" required [readonly]="esOcupada()">

@@ -24,8 +24,6 @@ public class JwtService {
 
         this.expirationTime = expiration;
 
-        // CORRECCIÓN: Validamos la longitud de la clave para evitar el WeakKeyException.
-        // HS384/HS512 de JJWT 0.12+ requiere un mínimo de bits.
         // Si la clave provista es muy corta (menor a 48 caracteres), la rellenamos o generamos una segura.
         if (secret == null || secret.trim().length() < 48) {
             // Suposición: Al ser una clave menor a 48 bytes, aplicamos un fallback con sal segura
